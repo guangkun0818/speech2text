@@ -71,7 +71,12 @@ def speed_perturb(pcm: torch.Tensor,
         return pcm
 
 
-def spec_aug(feat: torch.Tensor, num_t_mask=2, num_f_mask=2, max_t=50, max_f=10, max_w=80) :
+def spec_aug(feat: torch.Tensor,
+             num_t_mask=2,
+             num_f_mask=2,
+             max_t=50,
+             max_f=10,
+             max_w=80):
     """ Do spec augmentation
         Inplace operation
         Args:
@@ -88,14 +93,14 @@ def spec_aug(feat: torch.Tensor, num_t_mask=2, num_f_mask=2, max_t=50, max_f=10,
     y = feat.clone().detach()
     max_frames = y.size(0)
     max_freq = y.size(1)
-    
+
     # time mask
-    for i in range(num_t_mask) :
+    for i in range(num_t_mask):
         start = random.randint(0, max_frames - 1)
-        length = random. randint(1, max_t)
+        length = random.randint(1, max_t)
         end = min(max_frames, start + length)
         y[start:end, :] = 0
-    
+
     # freq mask
     for i in range(num_f_mask):
         start = random.randint(0, max_freq - 1)

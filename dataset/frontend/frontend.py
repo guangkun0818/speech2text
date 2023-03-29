@@ -13,10 +13,11 @@ class DummyFrontend(nn.Module):
         model is directly trained on Pcms instead of acoustic feats
         like MFCC or Fbank. 
     """
+
     def __init__(self, dummy=-1) -> None:
         super(DummyFrontend, self).__init__()
         self._dummy = dummy
-    
+
     @torch.no_grad()
     def forward(self, pcm: torch.Tensor) -> torch.Tensor:
         return pcm.squeeze(0)
