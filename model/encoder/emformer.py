@@ -1,7 +1,7 @@
 # Author: guangkun0818
 # Email: 609946862@qq.com
 # Created on 2023.04.01
-""" Emformer Encoder Impl, based on paper 
+""" Emformer Encoder Impl base on torchaudio, based on paper 
     https://arxiv.org/pdf/2010.10759.pdf
 """
 
