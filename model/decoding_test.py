@@ -125,7 +125,7 @@ class TestRnntGreedyDecoding(unittest.TestCase):
         self._predictor_config = {
             "model": "Lstm",
             "config": {
-                "num_symbols": 132,
+                "num_symbols": 128,
                 "output_dim": 512,
                 "symbol_embedding_dim": 256,
                 "num_lstm_layers": 3,
