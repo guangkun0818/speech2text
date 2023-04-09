@@ -31,7 +31,7 @@ class FrontendExport(pl.Callback):
 
             dummy_pcm = torch.rand(1, 41360)
             torchscipt_frontend = torch.jit.trace(pl_module._frontend,
-                                                example_inputs=dummy_pcm)
+                                                  example_inputs=dummy_pcm)
             torchscipt_frontend = torch.jit.script(torchscipt_frontend)
-            torchscipt_frontend.save(os.path.join(self._save_dir,
-                                                "frontend.script"))
+            torchscipt_frontend.save(
+                os.path.join(self._save_dir, "frontend.script"))
