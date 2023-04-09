@@ -71,9 +71,10 @@ class Joiner(nn.Module):
         boundary[:, 3] = encoder_out_lengths
         assert len(target.shape) == 2  # (B, U)
 
+        # Pruned rnnt loss strictly required fp32
         _, (px_grad, py_grad) = fast_rnnt.rnnt_loss_smoothed(
-            lm=predict_out,
-            am=encoder_out,
+            lm=predict_out.to(dtype=torch.float32),
+            am=encoder_out.to(dtype=torch.float32),
             symbols=target,
             termination_symbol=self.blank_token,
             lm_only_scale=0.0,
