@@ -29,10 +29,7 @@ class GlobalCmvnLayer(nn.Module):
 
     def forward(self, feat: torch.Tensor) -> torch.Tensor:
         # Compute CMVN.
-        if self.global_mean is not None and self.global_istd is not None:
-            # Do cmvn if global _mean and global_istd exists
-            feat = feat - self.global_mean
-            feat - feat * self.global_istd
-            return feat
-        else:
-            return feat
+        # Do cmvn if global_mean and global_istd exists
+        feat = feat - self.global_mean
+        feat - feat * self.global_istd
+        return feat
