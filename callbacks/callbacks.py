@@ -52,7 +52,7 @@ class GlobalCmvn(pl.Callback):
     def on_fit_start(self, trainer: "pl.Trainer",
                      pl_module: "pl.LightningModule") -> None:
         if trainer.global_rank == 0:
-            # Create empty tensor to track global cmv over dataset
+            # Create empty tensor to track global cmvn over dataset
             glog.info(
                 "Global CMVN specified, compute through whole training dataset..."
             )
@@ -86,7 +86,7 @@ class GlobalCmvn(pl.Callback):
             global_var = global_var.clamp(min=1.0e-20)
             global_istd = 1.0 / torch.sqrt(global_var)
 
-            # Update global mean and global_istd of GlobalCmnLayer
+            # Update global_mean and global_istd of GlobalCvmnLayer
             pl_module._global_cmvn.global_mean = global_mean.to(
                 pl_module.device)
             pl_module._global_cmvn.global_istd = global_istd.to(
