@@ -1,0 +1,41 @@
+FROM nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
+
+# Basic components, CUDA C++ env
+RUN apt update \
+    && DEBIAN_FRONTEND=noninteractive \
+    TZ=Etc/UTC \
+    apt-get -y install tzdata
+RUN apt update \
+    && apt -y install libboost-all-dev
+RUN apt update && apt install -y libbz2-dev
+RUN apt update && apt install -y liblzma-dev
+
+# Build Python env
+RUN apt update \
+    && apt -y install python3.8
+RUN ln -s /usr/bin/python3.8 /usr/bin/python
+RUN apt update && apt -y install python3-pip
+
+RUN apt update && apt -y install git
+RUN pip install cmake==3.22.1
+
+# Training related
+RUN pip install torch==1.12.1+cu113 \
+    torchvision==0.13.1+cu113 \
+    torchaudio==0.12.1 \
+    --extra-index-url https://download.pytorch.org/whl/cu113
+RUN export FT_MAKE_ARGS="-j8" && pip install --verbose fast_rnnt
+
+RUN pip install tensorboard==2.12.0
+RUN pip install starlette==0.22.0
+RUN pip install 'lightning'==2.0.0
+RUN pip install python-gflags==3.1.2
+RUN pip install glog==0.3.1
+RUN pip install transformers==4.27.3
+RUN pip install speechbrain==0.5.14
+RUN pip install parameterized==0.8.1
+
+RUN pip install h5py==3.8.0
+RUN pip install onnxruntime==1.14.1
+
+CMD ["/bin/bash"]
