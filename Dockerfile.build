@@ -1,7 +1,8 @@
-FROM nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
+FROM nvidia/cuda:11.6.1-cudnn8-devel-ubuntu20.04
 
 # Basic components, CUDA C++ env
-RUN apt update \
+RUN chmod 777 /tmp
+RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
     apt-get -y install tzdata
@@ -19,12 +20,19 @@ RUN apt update && apt -y install python3-pip
 RUN apt update && apt -y install git
 RUN pip install cmake==3.22.1
 
-# Training related
-RUN pip install torch==1.12.1+cu113 \
-    torchvision==0.13.1+cu113 \
-    torchaudio==0.12.1 \
-    --extra-index-url https://download.pytorch.org/whl/cu113
-RUN export FT_MAKE_ARGS="-j8" && pip install --verbose fast_rnnt
+# Training related: Pytorch 1.13.1 + CUDA 11.6
+RUN pip install torch==1.13.1+cu116 \
+    torchvision==0.14.1+cu116 \
+    torchaudio==0.13.1 \
+    --extra-index-url https://download.pytorch.org/whl/cu116
+
+# K2 v1.24.3, build from source
+RUN mkdir -p /workspace/deps && cd /workspace/deps
+RUN git clone https://github.com/k2-fsa/k2.git \
+    && cd k2 \
+    && git checkout v1.24.3 \
+    && export K2_MAKE_ARGS="-j8" \
+    && python setup.py install
 
 RUN pip install tensorboard==2.12.0
 RUN pip install starlette==0.22.0
