@@ -1,6 +1,6 @@
 # speech2text
 
-## Enviroment set up
+## Environment set up
 Build training runtime as below.
 ```bash
 # Build docker image
