@@ -18,7 +18,7 @@ class GlobalCmvnLayer(nn.Module):
 
         if config["feat_type"] != "pcm":
             assert "num_mel_bins" in config["feat_config"]
-            self._feat_dim = config["feat_config"]["num mel_bins"]
+            self._feat_dim = config["feat_config"]["num_mel_bins"]
 
             self.register_buffer("global_mean", torch.zeros(self._feat_dim))
             self.register_buffer("global_istd", torch.ones(self._feat_dim))
@@ -30,6 +30,9 @@ class GlobalCmvnLayer(nn.Module):
     def forward(self, feat: torch.Tensor) -> torch.Tensor:
         # Compute CMVN.
         # Do cmvn if global_mean and global_istd exists
-        feat = feat - self.global_mean
-        feat - feat * self.global_istd
-        return feat
+        if self.global_mean is not None and self.global_istd is not None:
+            feat = feat - self.global_mean
+            feat = feat * self.global_istd
+            return feat
+        else:
+            return feat

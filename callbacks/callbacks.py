@@ -30,24 +30,25 @@ class FrontendExport(pl.Callback):
                      pl_module: pl.LightningModule) -> None:
         if trainer.global_rank == 0:
             # Applied only on rank 0 device.
-            # Use dummy pcm for torch.jit.trace(frontend)
-            # NOTE: why 41360? please refer to dataset/frontend/frontend_test.py
-
-            dummy_pcm = torch.rand(1, 41360)
+            glog.info("Frontend export specified.")
+            dummy_pcm = torch.rand(1, 16000)
             torchscipt_frontend = torch.jit.trace(pl_module._frontend,
                                                   example_inputs=dummy_pcm)
             torchscipt_frontend = torch.jit.script(torchscipt_frontend)
             torchscipt_frontend.save(
                 os.path.join(self._save_dir, "frontend.script"))
+            glog.info("Exported frontend can be found at {}".format(
+                os.path.join(self._save_dir, "frontend.script")))
 
 
-class GlobalCmvn(pl.Callback):
+class ComputeGlobalCmvn(pl.Callback):
     """ Compute Global CMN when training starts for stablization of training """
 
-    def __init__(self, feat_dim, frontend_dir) -> None:
-        super(GlobalCmvn, self).__init__()
+    def __init__(self, feat_dim, frontend_dir, export_dir) -> None:
+        super(ComputeGlobalCmvn, self).__init__()
         self._feat_dim = feat_dim
         self._frontend_dir = frontend_dir
+        self._export_dir = export_dir
 
     def on_fit_start(self, trainer: "pl.Trainer",
                      pl_module: "pl.LightningModule") -> None:
@@ -71,7 +72,7 @@ class GlobalCmvn(pl.Callback):
                 frontend=frontend)
             dataloader = DataLoader(dataset=dataset,
                                     batch_size=1,
-                                    num_workers=64)
+                                    num_workers=4)
             for i, batch in enumerate(dataloader):
                 feat = batch["feat"].squeeze(0)  # (1, T, D) -> (T, D)
                 if (i + 1) % 50000 == 0:
@@ -86,9 +87,36 @@ class GlobalCmvn(pl.Callback):
             global_var = global_var.clamp(min=1.0e-20)
             global_istd = 1.0 / torch.sqrt(global_var)
 
-            # Update global_mean and global_istd of GlobalCvmnLayer
-            pl_module._global_cmvn.global_mean = global_mean.to(
-                pl_module.device)
-            pl_module._global_cmvn.global_istd = global_istd.to(
-                pl_module.device)
+            # Save global_mean and global_istd for global_cvmn_layer init
+            torch.save(global_mean,
+                       os.path.join(self._export_dir, "global_mean.t"))
+            torch.save(global_istd,
+                       os.path.join(self._export_dir, "global_istd.t"))
             glog.info("Done. Build Global CMVN layer for data normalization.")
+
+
+class LoadGlobalCmvn(pl.Callback):
+    """ Load global mean and istd into GlobalCmvnLayer, this seperate design is 
+        because when FSDP strategy applied buffer will not synchronized across 
+        all GPU node. Therefore, compute global cmvn only on rank 0, and load
+        saved mean istd into all ranks.
+    """
+
+    def __init__(self, cmvn_dir) -> None:
+        super().__init__()
+
+        self._cmvn_dir = cmvn_dir
+
+    def on_train_start(self, trainer: pl.Trainer,
+                       pl_module: pl.LightningModule) -> None:
+        # Load saved global mean/istd into GlobalCmvnLayer
+        global_mean = torch.load(os.path.join(self._cmvn_dir, "global_mean.t"))
+        global_istd = torch.load(os.path.join(self._cmvn_dir, "global_istd.t"))
+        pl_module._global_cmvn.state_dict()["global_mean"].copy_(global_mean)
+        pl_module._global_cmvn.state_dict()["global_istd"].copy_(global_istd)
+
+        glog.info("CMVN loaded.")
+
+
+class SpmTrain(pl.Callback):
+    """  """
