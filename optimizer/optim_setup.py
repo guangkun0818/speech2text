@@ -25,7 +25,6 @@ def OptimSetup(config):
         raise ValueError("{} optimizer is not supported.".format(
             config["optimizer"]["type"]))
 
-    
     if config["lr_scheduler"]["type"] == "Warmup":
         lr_scheduler = WarmupLR
     elif config["lr_scheduler"]["type"] == "Cosine_Annealing":
