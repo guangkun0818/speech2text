@@ -31,6 +31,8 @@ def OptimSetup(config):
         lr_scheduler = CosineAnnealingLR
     elif config["lr_scheduler"]["type"] == "Cosine_Warmup":
         lr_scheduler = CosineWarmupScheduler
+    elif config["lr_scheduler"]["type"] == "Noam_Hold_Annealing":
+        lr_scheduler = NoamHoldAnnealing
     else:
         raise ValueError("{} lr_scheduler is not supported.".format(
             config["lr_scheduler"]["type"]))
@@ -298,7 +300,7 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
         if self.warmup_steps is None or self.warmup_steps == 0:
             raise ValueError(
                 "Noam scheduler cannot be used without warmup steps")
-        
+
         if self.hold_steps > 0:
             hold_steps = self.hold_steps - self.warmup_steps
         else:
