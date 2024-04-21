@@ -91,7 +91,7 @@ def spm_training_preprocess(task_type, task_export_path, config):
         spm_export_dir = os.path.join(task_export_path, "spm")
         spm_model = config["tokenizer"]["config"]["spm_model"]
         spm_vocab = config["tokenizer"]["config"]["spm_vocab"]
-        spm_apply_train = config["tokenizer"]["config"]["apply_train"]
+        spm_apply_train = config["tokenizer"]["apply_train"]
 
         if spm_apply_train:
             assert (
