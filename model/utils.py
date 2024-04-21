@@ -88,19 +88,19 @@ def word_error_rate(hypotheses: List[str],
 
 
 @dataclasses.dataclass
-class MetricConfig:
+class AsrMetricConfig:
     """ Metric Config supporting Ctc and Rnnt task. """
     decode_method: str = "ctc_greedy_search"
     max_token_step: int = 5  # Max Token Step of Rnnt Decoder
 
 
-class Metric(object):
+class AsrMetric(object):
     """ Metric for training """
 
     def __init__(
         self,
         tokenizer: Tokenizer,
-        config: MetricConfig,
+        config: AsrMetricConfig,
         predictor: Predictor = None,
         joiner: Joiner = None,
     ):

@@ -12,7 +12,7 @@ from parameterized import parameterized
 from dataset.utils import TokenizerSetup
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
-from model.utils import Metric, MetricConfig
+from model.utils import AsrMetric, AsrMetricConfig
 
 # (B, T, D) = (2, 8, 5)
 _LOGITS = torch.Tensor([[0.6, 0.2, 0.1, 0.1, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0],
@@ -39,8 +39,8 @@ class TestCtcMetric(unittest.TestCase):
         }
         self._char_tokenizer = TokenizerSetup(self._char_config)
         self._metric_config = {"decode_method": "ctc_greedy_search"}
-        self._metrics = Metric(self._char_tokenizer,
-                               config=MetricConfig(**self._metric_config))
+        self._metrics = AsrMetric(self._char_tokenizer,
+                                  config=AsrMetricConfig(**self._metric_config))
 
     # Params: (log probs, inputs_length, expect_wer)
     @parameterized.expand([(_LOGITS, torch.Tensor([8, 8]).long(), 0.5),
@@ -91,9 +91,9 @@ class TestRnntMetric(unittest.TestCase):
                 "max_token_step": 1
             }
         }
-        self._rnnt_metric = Metric(
+        self._rnnt_metric = AsrMetric(
             self._tokenzier,
-            config=MetricConfig(**self._metric_config["metric"]),
+            config=AsrMetricConfig(**self._metric_config["metric"]),
             predictor=self._predictor,
             joiner=self._joiner)
 
