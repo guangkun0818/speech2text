@@ -40,6 +40,7 @@ dataset:
 encoder:
   model: "Conformer"
   config:
+    bn_cmvn: false
     feats_dim: 80
     subsampling_rate: 4
     input_dim: 256
