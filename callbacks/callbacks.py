@@ -116,7 +116,3 @@ class LoadGlobalCmvn(pl.Callback):
         pl_module._global_cmvn.state_dict()["global_istd"].copy_(global_istd)
 
         glog.info("CMVN loaded.")
-
-
-class SpmTrain(pl.Callback):
-    """  """
