@@ -69,7 +69,9 @@ class ComputeGlobalCmvn(pl.Callback):
 
             dataset = AsrTestDataset(
                 dataset_json=pl_module._dataset_config["train_data"],
-                frontend=frontend)
+                frontend=frontend,
+                dur_min_filter=pl_module._dataset_config["dur_min_filter"],
+                dur_max_filter=pl_module._dataset_config["dur_max_filter"])
             dataloader = DataLoader(dataset=dataset,
                                     batch_size=1,
                                     num_workers=4)
