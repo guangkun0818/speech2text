@@ -42,11 +42,15 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
                 "dither": 0.0,
                 "samplerate": 16000
             },
-            "add_noise_proportion": 0.5,
-            "add_noise_config": {
-                "min_snr_db": 10,
-                "max_snr_db": 50,
-                "max_gain_db": 300.0,
+            "data_aug_config": {
+                "use_speed_perturb": True,
+                "use_spec_aug": True,
+                "add_noise_proportion": 0.5,
+                "add_noise_config": {
+                    "min_snr_db": 10,
+                    "max_snr_db": 50,
+                    "max_gain_db": 300.0,
+                }
             }
         }
 
@@ -116,11 +120,14 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             "feat_config": {
                 "dummy": -1
             },
-            "add_noise_proportion": 0.5,
-            "add_noise_config": {
-                "min_snr_db": 10,
-                "max_snr_db": 50,
-                "max_gain_db": 300.0,
+            "data_aug_config": {
+                "use_speed_perturb": True,
+                "add_noise_proportion": 0.5,
+                "add_noise_config": {
+                    "min_snr_db": 10,
+                    "max_snr_db": 50,
+                    "max_gain_db": 300.0,
+                }
             }
         }
 

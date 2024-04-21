@@ -90,11 +90,13 @@ class AsrTrainDataset(BaseDataset):
             self.total_duration / 3600, ".2f"))
 
         self._feat_type = config["feat_type"]
+        self._data_aug_config = config["data_aug_config"]
         self._tokenizer = tokenizer
 
         # Add Noise data_augmentation
-        self._add_noise_proportion = config["add_noise_proportion"]
-        self._add_noise_config = config["add_noise_config"]
+        self._add_noise_proportion = self._data_aug_config[
+            "add_noise_proportion"]
+        self._add_noise_config = self._data_aug_config["add_noise_config"]
         self._add_noise = data_augmentation.add_noise
 
         # Speed_perturb augmentation
@@ -134,10 +136,12 @@ class AsrTrainDataset(BaseDataset):
                                            normalize=True)
             pcm = self._add_noise(pcm, noise_pcm, **self._add_noise_config)
 
-        pcm = self._speed_perturb(pcm)  # Speed_perturb aug
+        if self._data_aug_config["use_speed_perturb"]:
+            pcm = self._speed_perturb(pcm)  # Speed_perturb aug
+
         feat = self._compute_feature(pcm)  # Extract acoustic feats
 
-        if self._feat_type == "fbank":
+        if self._feat_type == "fbank" and self._data_aug_config["use_spec_aug"]:
             feat = self._spec_augment(feat)  # Spec_aug
 
         label_tensor = self._tokenizer.encode(data["text"])
