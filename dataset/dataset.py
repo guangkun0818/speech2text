@@ -19,34 +19,38 @@ import dataset.utils as utils
 from dataset.frontend.frontend import KaldiWaveFeature, DummyFrontend
 
 
-class AsrBaseDataset(Dataset):
+class BaseDataset(Dataset):
     """ Base ASR Dataset to inherit for train, eval, test """
 
     def __init__(self,
                  dataset_json,
-                 dur_filter=20.0,
+                 dur_min_filter=0.0,
+                 dur_max_filter=20.0,
                  noiseset_json=None) -> None:
         """ Args:
                 dataset_json: JSON file of train data, same as NeMo.
                 dur_filter: Use JSON duration of dataset to filter dataset
                 noiseset_json: JSON file of noise data
         """
-        super(AsrBaseDataset, self).__init__()
+        super(BaseDataset, self).__init__()
         self._total_duration = 0.0
-        self._dataset = self._make_dataset_from_json(dataset_json, dur_filter)
+        self._dataset = self._make_dataset_from_json(dataset_json,
+                                                     dur_min_filter,
+                                                     dur_max_filter)
 
         # Load noise set if add noise applied
         self._noise_dataset = []
         if noiseset_json is not None:
             self._make_noiseset_from_json(noiseset_json)
 
-    def _make_dataset_from_json(self, json_file, dur_filter):
+    def _make_dataset_from_json(self, json_file, dur_min_filter,
+                                dur_max_filter):
         """ Make Dataset list from JSON file """
         datamap = []
         with open(json_file, 'r') as json_f:
             for line in json_f:
                 data_infos = json.loads(line)
-                if data_infos["duration"] <= dur_filter:
+                if dur_min_filter <= data_infos["duration"] <= dur_max_filter:
                     datamap.append(data_infos)
                     self._total_duration += data_infos["duration"]
         return datamap
@@ -72,13 +76,14 @@ class AsrBaseDataset(Dataset):
         pass
 
 
-class AsrTrainDataset(AsrBaseDataset):
+class AsrTrainDataset(BaseDataset):
     """ ASR TrainDataset with Data Augementation"""
 
     def __init__(self, config, tokenizer: utils.TokenizerSetup) -> None:
         super(AsrTrainDataset,
               self).__init__(dataset_json=config["train_data"],
-                             dur_filter=config["dur_filter"],
+                             dur_min_filter=config["dur_min_filter"],
+                             dur_max_filter=config["dur_max_filter"],
                              noiseset_json=config["noise_data"])
 
         glog.info("Train dataset duration: {}h.".format(
@@ -145,13 +150,15 @@ class AsrTrainDataset(AsrBaseDataset):
         }
 
 
-class AsrEvalDataset(AsrBaseDataset):
+class AsrEvalDataset(BaseDataset):
     """ ASR EvalDataset without Data Augementation """
 
     def __init__(self, config, tokenizer: utils.TokenizerSetup) -> None:
-        super(AsrEvalDataset, self).__init__(dataset_json=config["eval_data"],
-                                             dur_filter=config["dur_filter"],
-                                             noiseset_json=None)
+        super(AsrEvalDataset,
+              self).__init__(dataset_json=config["eval_data"],
+                             dur_min_filter=config["dur_min_filter"],
+                             dur_max_filter=config["dur_max_filter"],
+                             noiseset_json=None)
 
         glog.info("Eval dataset duration: {}h.".format(
             self.total_duration / 3600, ".2f"))
@@ -193,13 +200,22 @@ class AsrEvalDataset(AsrBaseDataset):
         }
 
 
-class AsrTestDataset(AsrBaseDataset):
+class AsrTestDataset(BaseDataset):
     """ Asr TestDataset without Data Augementation and batching """
 
-    def __init__(self, dataset_json, frontend) -> None:
-        # Testset should not filter any of the data, set infinite of filter factor
-        super(AsrTestDataset, self).__init__(dataset_json=dataset_json,
-                                             dur_filter=float("inf"))
+    def __init__(
+            self,
+            dataset_json,
+            frontend,
+            dur_min_filter=0.0,
+            dur_max_filter=float("inf"),
+    ) -> None:
+        # Testset should not filter any of the data, set infinite as dur_max_filter factor as deflaut
+        super(AsrTestDataset, self).__init__(
+            dataset_json=dataset_json,
+            dur_min_filter=dur_min_filter,
+            dur_max_filter=dur_max_filter,
+        )
 
         # Load TorchScript frontend graph to initialize featrue extraction session
         self._frontend_sess = torch.jit.load(frontend)
@@ -220,7 +236,7 @@ class AsrTestDataset(AsrBaseDataset):
         return {"feat": feat, "text": data["text"]}
 
 
-def collate_fn(raw_batch: List[Dict]) -> Dict:
+def asr_collate_fn(raw_batch: List[Dict]) -> Dict:
     """ Batching and Padding sequence right before output, 
         implement for train, eval 
     """
