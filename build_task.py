@@ -83,11 +83,11 @@ def run_task():
                                           "averaged.chkpt")
             task = TaskFactory[TASK_TYPE].value.load_from_checkpoint(
                 pretrain_model, config=config, strict=False)
-        else:
-            task = TaskFactory[TASK_TYPE].value(config)
+    else:
+        task = TaskFactory[TASK_TYPE].value(config)
 
     # ---- Set up callbacks and tensorboard logs ----
-    chkpt_filename = TASK_NAME + "-{epoch}-{val_loss:.2f}" + "-{%s:.2f]" % config[
+    chkpt_filename = TASK_NAME + "-{epoch}-{val_loss:.2f}" + "-{%s:.2f}" % config[
         "callbacks"]["model_chkpt_config"]["monitor"]
     chkpt_callback = callbacks.ModelCheckpoint(
         dirpath=os.path.join(TASK_EXPORT_PATH, "checkpoints"),
