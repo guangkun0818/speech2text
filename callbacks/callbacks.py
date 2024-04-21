@@ -62,7 +62,7 @@ class ComputeGlobalCmvn(pl.Callback):
             global_var = torch.ones(self._feat_dim)  # (feat_dim)
             num_frames = 0
 
-            assert hasattr(pl_module, " _dataset_config")
+            assert hasattr(pl_module, "_dataset_config")
             assert os.path.exists(
                 os.path.join(self._frontend_dir, "frontend.script"))
             frontend = os.path.join(self._frontend_dir, "frontend.script")
