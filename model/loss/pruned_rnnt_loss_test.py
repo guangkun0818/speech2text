@@ -22,27 +22,28 @@ class TestPrunedRnntLoss(unittest.TestCase):
             **self._config))
 
         self._joiner_config = {
-            "input_dim": 1024,
-            "output_dim": 128,
+            "input_dim": 512,
+            "output_dim": 1000,
             "activation": "relu",
             "prune_range": 5
         }
         self._joiner = Joiner(config=JoinerConfig(**self._joiner_config))
 
     def test_pruned_loss_forward(self):
-        # Unittest of forward of UnPruned Joiner.
-        enc_out = torch.rand(4, 200, 1024)
+        # Unittest of forward of PrunedRnntLoss.
+        enc_out = torch.rand(4, 200, 512)
         enc_out_lengths = torch.Tensor([197, 200, 65, 80])
-        pred_out = torch.rand(4, 16, 1024)
+        pred_out = torch.rand(4, 16, 512)
         tgts_length = torch.Tensor([8, 10, 9, 2])
-        tgts = torch.randint(1, 128, (4, 15))
+        tgts = torch.randint(1, 1000, (4, 15))
 
-        logits, boundary, ranges = self._joiner(enc_out, enc_out_lengths,
-                                                pred_out, tgts_length, tgts)
+        logits, boundary, ranges, simple_loss = self._joiner(
+            enc_out, enc_out_lengths, pred_out, tgts_length, tgts)
 
-        loss = self._pruned_loss(logits, tgts, enc_out_lengths, tgts_length,
-                                 boundary, ranges)
-        glog.info("Pruned Rnnt Loss: {}".format(loss))
+        pruned_loss = self._pruned_loss(logits, tgts, enc_out_lengths,
+                                        tgts_length, boundary, ranges)
+        glog.info("Pruned Rnnt Loss: {}".format(pruned_loss))
+        glog.info("Simple Rnnt Loss: {}".format(simple_loss))
 
 
 if __name__ == "__main__":

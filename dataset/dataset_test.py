@@ -10,7 +10,7 @@ import unittest
 from parameterized import parameterized
 from torch.utils.data import DataLoader
 from dataset.dataset import AsrTrainDataset, AsrEvalDataset, AsrTestDataset
-from dataset.dataset import collate_fn
+from dataset.dataset import asr_collate_fn
 from dataset.utils import TokenizerSetup
 
 
@@ -31,7 +31,8 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
             "train_data": "sample_data/asr_train_data.json",
             "eval_data": "sample_data/asr_eval_data.json",
             "noise_data": "sample_data/noise_data.json",
-            "dur_filter": 20.0,
+            "dur_min_filter": 0.0,
+            "dur_max_filter": 20.0,
             "batch_size": 256,
             "feat_type": "fbank",
             "feat_config": {
@@ -41,11 +42,15 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
                 "dither": 0.0,
                 "samplerate": 16000
             },
-            "add_noise_proportion": 0.5,
-            "add_noise_config": {
-                "min_snr_db": 10,
-                "max_snr_db": 50,
-                "max_gain_db": 300.0,
+            "data_aug_config": {
+                "use_speed_perturb": True,
+                "use_spec_aug": True,
+                "add_noise_proportion": 0.5,
+                "add_noise_config": {
+                    "min_snr_db": 10,
+                    "max_snr_db": 50,
+                    "max_gain_db": 300.0,
+                }
             }
         }
 
@@ -62,7 +67,7 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
         count = 0
         dataloader = DataLoader(dataset=self._train_dataset,
                                 batch_size=batch_size,
-                                collate_fn=collate_fn)
+                                collate_fn=asr_collate_fn)
         for i, batch in enumerate(dataloader):
             count += 1
             glog.info("feat: {}".format(batch["feat"].shape))
@@ -78,7 +83,7 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
         count = 0
         dataloader = DataLoader(dataset=self._eval_dataset,
                                 batch_size=batch_size,
-                                collate_fn=collate_fn)
+                                collate_fn=asr_collate_fn)
         for i, batch in enumerate(dataloader):
             count += 1
             glog.info("feat: {}".format(batch["feat"].shape))
@@ -108,17 +113,21 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             "train_data": "sample_data/asr_train_data.json",
             "eval_data": "sample_data/asr_eval_data.json",
             "noise_data": "sample_data/noise_data.json",
-            "dur_filter": 20.0,
+            "dur_min_filter": 0.0,
+            "dur_max_filter": 20.0,
             "batch_size": 256,
             "feat_type": "pcm",
             "feat_config": {
                 "dummy": -1
             },
-            "add_noise_proportion": 0.5,
-            "add_noise_config": {
-                "min_snr_db": 10,
-                "max_snr_db": 50,
-                "max_gain_db": 300.0,
+            "data_aug_config": {
+                "use_speed_perturb": True,
+                "add_noise_proportion": 0.5,
+                "add_noise_config": {
+                    "min_snr_db": 10,
+                    "max_snr_db": 50,
+                    "max_gain_db": 300.0,
+                }
             }
         }
 
@@ -135,7 +144,7 @@ class TestAsrPcmCharDataset(unittest.TestCase):
         count = 0
         dataloader = DataLoader(dataset=self._train_dataset,
                                 batch_size=batch_size,
-                                collate_fn=collate_fn)
+                                collate_fn=asr_collate_fn)
         for i, batch in enumerate(dataloader):
             count += 1
             glog.info("feat: {}".format(batch["feat"].shape))
@@ -151,7 +160,7 @@ class TestAsrPcmCharDataset(unittest.TestCase):
         count = 0
         dataloader = DataLoader(dataset=self._eval_dataset,
                                 batch_size=batch_size,
-                                collate_fn=collate_fn)
+                                collate_fn=asr_collate_fn)
         for i, batch in enumerate(dataloader):
             count += 1
             glog.info("feat: {}".format(batch["feat"].shape))

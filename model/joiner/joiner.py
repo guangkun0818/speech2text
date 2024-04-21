@@ -5,7 +5,7 @@
 
 import dataclasses
 import torch
-import fast_rnnt
+import k2
 import torch.nn as nn
 
 from typing import List, Tuple
@@ -14,8 +14,9 @@ from typing import List, Tuple
 @dataclasses.dataclass
 class JoinerConfig:
     """ Joiner Config interface """
-    input_dim: int  # source and target input dimension.
-    output_dim: int  # output dimension.
+    input_dim: int  # Input dimension of encoder_out and predictor_out.
+    output_dim: int  # Output dimension, refered as vocab size
+    inner_dim: int = 256  # Inner dim of last projection layer
     activation: str = "relu"  # activation func, choose from ("relu", "tanh")
     prune_range: int = 5  # specify as -1 if pruned rnnt loss not applied
 
@@ -27,14 +28,22 @@ class Joiner(nn.Module):
         super(Joiner, self).__init__()
 
         # Out_dim of Both Encoder and predictor shall same dim.
-        # Basically joiner is just composed with 1 1ayer Linear + activation.
-        self._linear = nn.Linear(config.input_dim, config.output_dim, bias=True)
+        # Basically joiner is just composed with Linear + activation.
+        self._input_dim = config.input_dim
+        self._output_dim = config.output_dim
+        self._inner_dim = config.inner_dim
+
+        self._linear = nn.Linear(self._input_dim, self._output_dim, bias=True)
         if config.activation == "relu":
             self._activation = nn.ReLU()
         elif config.activation == "tanh":
             self._activation = nn.Tanh()
         else:
             raise ValueError(f"Unsupported activation {config.activation}")
+
+        self._out_projection = nn.Sequential(
+            nn.Linear(self._output_dim, self._inner_dim),
+            nn.Linear(self._inner_dim, self._output_dim))
 
         self._log_softmax = nn.LogSoftmax(dim=-1)
 
@@ -61,7 +70,7 @@ class Joiner(nn.Module):
                 target_lengths: (B)
                 target: (B, U) Ground truth of each utterance within batch
             return:
-                am_pruned, lm_pruned, boundary, ranges
+                am_pruned, lm_pruned, boundary, ranges, simple_loss
         """
 
         boundary = torch.zeros((encoder_out.size(0), 4),
@@ -69,10 +78,12 @@ class Joiner(nn.Module):
                                device=encoder_out.device)
         boundary[:, 2] = target_lengths
         boundary[:, 3] = encoder_out_lengths
-        assert len(target.shape) == 2  # (B, U)
+        assert predict_out.shape[-1] >= self._output_dim and predict_out.shape[
+            -1] >= self._output_dim, "If pruned rnnt loss applied, output dim of encoder and \
+                predictor should be mandatorily larger than num of tokens. Please check your config"
 
         # Pruned rnnt loss strictly required fp32
-        _, (px_grad, py_grad) = fast_rnnt.rnnt_loss_smoothed(
+        simple_loss, (px_grad, py_grad) = k2.rnnt_loss_smoothed(
             lm=predict_out.to(dtype=torch.float32),
             am=encoder_out.to(dtype=torch.float32),
             symbols=target,
@@ -80,11 +91,11 @@ class Joiner(nn.Module):
             lm_only_scale=0.0,
             am_only_scale=0.0,
             boundary=boundary,
-            reduction="sum",
+            reduction="mean",
             return_grad=True,
         )
 
-        ranges = fast_rnnt.get_rnnt_prune_ranges(
+        ranges = k2.get_rnnt_prune_ranges(
             px_grad=px_grad,
             py_grad=py_grad,
             boundary=boundary,
@@ -93,10 +104,10 @@ class Joiner(nn.Module):
 
         # am_pruned : [B, T, prune_range, C]
         # Im_pruned : [B, T, prune_range, C]
-        am_pruned, lm_pruned = fast_rnnt.do_rnnt_pruning(am=encoder_out,
-                                                         lm=predict_out,
-                                                         ranges=ranges)
-        return am_pruned, lm_pruned, boundary, ranges
+        am_pruned, lm_pruned = k2.do_rnnt_pruning(am=encoder_out,
+                                                  lm=predict_out,
+                                                  ranges=ranges)
+        return am_pruned, lm_pruned, boundary, ranges, simple_loss
 
     @torch.jit.unused
     def forward(
@@ -106,7 +117,7 @@ class Joiner(nn.Module):
         predict_out: torch.Tensor,
         target_lengths: torch.Tensor,
         target: torch.Tensor = torch.empty(0, 0)
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """ NOTE: U + 1 of target_encodings dims mean raw targets with 
             shape (B, U) should be preppended as (B, 1 + U, D) with 
             <blank_id> (Future maybe <sos>?), this part is pre-processed 
@@ -119,10 +130,13 @@ class Joiner(nn.Module):
                 target: (B, U) or Empty tensor as default, this will be 
                         utilized when prune rnnt loss applied.
         """
+        encoder_out = self._linear(encoder_out)
+        predict_out = self._linear(predict_out)
+
         if self.prune_range > 0:
             assert target.shape[0] == target_lengths.shape[0]
             # Prune with given prune range, return [B, T, prune_range, C]
-            encoder_out, predict_out, boundary, ranges = self._do_rnnt_prune(
+            encoder_out, predict_out, boundary, ranges, simple_loss = self._do_rnnt_prune(
                 encoder_out=encoder_out,
                 encoder_out_lengths=encoder_out_lengths,
                 predict_out=predict_out,
@@ -132,11 +146,13 @@ class Joiner(nn.Module):
             # For API consistency
             boundary = None
             ranges = None
+            simple_loss = None
 
         assert len(encoder_out.shape) == 3 or len(encoder_out.shape) == 4
         if len(encoder_out.shape) == 3:
             # Indicating unpruned, unsqueeze for broadcasting
             encoder_out = encoder_out.unsqueeze(2).contiguous()
+
         assert len(predict_out.shape) == 3 or len(predict_out.shape) == 4
         if len(predict_out.shape) == 3:
             # Indicating unpruned, unsqueeze for broadcasting
@@ -144,11 +160,11 @@ class Joiner(nn.Module):
 
         joint_encodings = encoder_out + predict_out
         activation_out = self._activation(joint_encodings)
-        output = self._linear(activation_out)
+        output = self._out_projection(activation_out)
 
         # Use raw output of joiner for rnnt_loss compute since log_softmax will be
         # done within rnnt_loss.
-        return output, boundary, ranges
+        return output, boundary, ranges, simple_loss
 
     @torch.jit.export
     @torch.inference_mode(mode=True)
@@ -160,12 +176,16 @@ class Joiner(nn.Module):
         assert encoder_out.shape[0] == 1 and encoder_out.shape[1] == 1
         assert predictor_out.shape[0] == 1 and predictor_out.shape[1] == 1
 
+        # Project both with configured out_dim in to vocab_size
+        encoder_out = self._linear(encoder_out)
+        predictor_out = self._linear(predictor_out)
+
         encoder_out = encoder_out.unsqueeze(2).contiguous()
         predictor_out = predictor_out.unsqueeze(1).contiguous()
 
         joint_encodings = encoder_out + predictor_out
         activation_out = self._activation(joint_encodings)
-        output = self._linear(activation_out)
+        output = self._out_projection(activation_out)
 
         output = self._log_softmax(output)  #(1, 1, 1, D)
         output = output.squeeze(0).squeeze(0)  #（1,D)

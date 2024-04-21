@@ -14,8 +14,8 @@ class TestJoiner(unittest.TestCase):
 
     def setUp(self) -> None:
         self._unpruned_config = {
-            "input_dim": 1024,
-            "output_dim": 128,
+            "input_dim": 512,
+            "output_dim": 1000,
             "activation": "relu",
             "prune_range": -1
         }
@@ -23,8 +23,8 @@ class TestJoiner(unittest.TestCase):
             **self._unpruned_config))
 
         self._pruned_config = {
-            "input_dim": 1024,
-            "output_dim": 128,
+            "input_dim": 512,
+            "output_dim": 1000,
             "activation": "relu",
             "prune_range": 5
         }
@@ -32,37 +32,41 @@ class TestJoiner(unittest.TestCase):
 
     def test_unpruned_joiner_forward(self):
         # Unittest of forward of UnPruned Joiner.
-        encoder_out = torch.rand(4, 200, 1024)
-        encoder_out_lengths = torch.Tensor([197, 200, 65, 80])
-        predictor_out = torch.rand(4, 16, 1024)
+        hidden = torch.rand(4, 200, 512)
+        hidden_lengths = torch.Tensor([197, 200, 65, 80])
+        predictor_out = torch.rand(4, 16, 512)
         tgts_length = torch.Tensor([8, 10, 9, 2])
 
-        output, boundary, ranges = self._unpruned_joiner(
-            encoder_out, encoder_out_lengths, predictor_out, tgts_length)
+        output, boundary, ranges, simple_loss = self._unpruned_joiner(
+            hidden, hidden_lengths, predictor_out, tgts_length)
 
         # Output shape (B, T, U, D)
         self.assertEqual(output.shape[1], 200)
         self.assertEqual(output.shape[2], 16)
-        self.assertEqual(output.shape[3], 128)
+        self.assertEqual(output.shape[3], 1000)
+        self.assertEqual(boundary, None)
+        self.assertEqual(ranges, None)
+        self.assertEqual(simple_loss, None)
         glog.info("Output shape: {}".format(output.shape))
 
     def test_pruned_joiner_forward(self):
         # Unittest of forward of Pruned Joiner.
-        encoder_out = torch.rand(4, 200, 1024)
-        encoder_out_lengths = torch.Tensor([197, 200, 65, 80])
-        predictor_out = torch.rand(4, 16, 1024)
+        hidden = torch.rand(4, 200, 512)
+        hidden_lengths = torch.Tensor([197, 200, 65, 80])
+        predictor_out = torch.rand(4, 16, 512)
         tgts_length = torch.Tensor([8, 10, 9, 2])
-        tgts = torch.randint(1, 128, (4, 15))
+        tgts = torch.randint(1, 1000, (4, 15))
 
-        output, boundary, ranges = self._pruned_joiner(encoder_out,
-                                                       encoder_out_lengths,
-                                                       predictor_out,
-                                                       tgts_length, tgts)
+        output, boundary, ranges, simple_loss = self._pruned_joiner(
+            hidden, hidden_lengths, predictor_out, tgts_length, tgts)
 
         # Output shape (B, T, U, D)
         self.assertEqual(output.shape[1], 200)
         self.assertEqual(output.shape[2], self._pruned_joiner.prune_range)
-        self.assertEqual(output.shape[3], 128)
+        self.assertEqual(output.shape[3], 1000)
+        self.assertNotEqual(boundary, None)
+        self.assertNotEqual(ranges, None)
+        self.assertNotEqual(simple_loss, None)
         glog.info("Output shape: {}".format(output.shape))
 
     def test_joiner_torchscript_export(self):
@@ -70,14 +74,14 @@ class TestJoiner(unittest.TestCase):
         self._pruned_joiner.train(False)
         ts_joiner = torch.jit.script(self._pruned_joiner)
 
-        curr_hidden = torch.rand(1, 1, 1024)
-        prev_token = torch.rand(1, 1, 1024)
+        curr_hidden = torch.rand(1, 1, 512)
+        prev_token = torch.rand(1, 1, 512)
 
         # (1, D)
         next_token_logits = ts_joiner.streaming_step(curr_hidden, prev_token)
         self.assertEqual(len(next_token_logits.shape), 2)
         self.assertEqual(next_token_logits.shape[0], 1)
-        self.assertEqual(next_token_logits.shape[1], 128)
+        self.assertEqual(next_token_logits.shape[1], 1000)
 
 
 if __name__ == "__main__":

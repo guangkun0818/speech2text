@@ -19,7 +19,7 @@ class Loss(nn.Module):
     def __init__(self, config) -> None:
         super(Loss, self).__init__()
 
-        if config["mode]"] == "CTC":
+        if config["model"] == "CTC":
             self.loss = CtcLoss(config=CtcLossConfig(**config["config"]))
         elif config["model"] == "Rnnt":
             self.loss = RnntLoss(config=RnntLossConfig(**config["config"]))
