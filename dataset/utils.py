@@ -47,9 +47,10 @@ class Tokenizer(abc.ABC):
         """ Return: torch.Tensor(nums_tokens) """
         vector = []
         for char in text:
-            assert char in self.labels, "{} is not in vocabulary {}".format(
-                char, self.labels)
-            vector.append(self.labels.index(char))
+            if char not in self.labels:
+                vector.append(self.labels.index("<unk>"))
+            else:
+                vector.append(self.labels.index(char))
         vector = torch.Tensor(vector).long()
         return vector
 
@@ -104,25 +105,26 @@ class SubwordTokenizer(Tokenizer):
                 # Get rid of <s> and </s>
                 if token != "<s>" and token != "</s>":
                     labels.append(token)
-        labels.append("<sos>")  # add <sos> token for rescore and Rnnt
+        labels.append("<sos/eos>")  # add <sos/eos> token for rescore and Rnnt
         return labels
 
     def encode(self, text: str) -> torch.Tensor:
-        return self._text_to_vector(self._sp.EncodeAsPieces(text))
+        return self._text_to_vector(
+            self._sp.EncodeAsPieces(text, emit_unk_piece=True))
 
     def decode(self, vector: torch.Tensor) -> str:
         return self._sp.DecodePieces(self._vector_to_tokens(vector))
 
     def encode_as_tokens(self, text: str) -> List[str]:
-        tokens = self._sp.EncodeAsPieces(text)
-        for char in tokens:
-            assert char in self.labels, "Out of vocabulary detected with '{}'".format(
-                char)
+        tokens = self._sp.EncodeAsPieces(text, emit_unk_piece=True)
+        for i in range(len(tokens)):
+            if tokens[i] not in self.labels:
+                tokens[i] = "<unk>"
         return tokens
 
     def decode_from_tokens(self, tokens: List[str]) -> str:
         for char in tokens:
-            assert char in self.labels, "Out of vocabulary detecte with '{}'".format(
+            assert char in self.labels, "Out of vocabulary detects with '{}'".format(
                 char)
         return self._sp.DecodePieces(tokens)
 
@@ -134,7 +136,7 @@ class CharTokenizer(Tokenizer):
         super(CharTokenizer, self).__init__()
 
         # Insert <blank_id> at front and <sos> at rear
-        self._labels = ["<blank_id>"] + config.labels + ["<sos>"]
+        self._labels = ["<blank_id>", "<unk>"] + config.labels + ["<sos/eos>"]
 
     @property
     def labels(self):
@@ -148,9 +150,9 @@ class CharTokenizer(Tokenizer):
 
     def encode_as_tokens(self, text: str) -> List[str]:
         tokens = list(text)
-        for char in tokens:
-            assert char in self.labels, "Out of vocabulary detected with '{}'".format(
-                char)
+        for i in range(len(tokens)):
+            if tokens[i] not in self.labels:
+                tokens[i] = "<unk>"
         return tokens
 
     def decode_from_tokens(self, tokens: List[str]) -> str:
