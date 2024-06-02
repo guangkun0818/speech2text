@@ -68,7 +68,7 @@ optim_setup:
   lr_scheduler:
     type: "Warmup"
     config:
-      warmup_steps: 20000
+      warmup_steps: 200
     step_config:
       interval: "step"
       frequency: 1
@@ -80,7 +80,9 @@ trainer:
   precision: "32-true"
   max_epochs: 2000
   val_check_interval: 1.0
-  accumulate_grad_batches: 1
+  accumulate_grad_batches: 10
+  gradient_clip_algorithm: "norm"
+  gradient_clip_val: 5.0
 
 callbacks:
   model_chkpt_config:
