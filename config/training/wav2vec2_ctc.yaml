@@ -1,0 +1,97 @@
+# Demo training config of Pretrained Wav2Vec2 + CTC
+
+task:
+  type: "CTC"
+  name: "wav2vec2-subword-ctc"
+  export_path: "tasks/debug"
+
+tokenizer:
+  type: "subword"
+  config:
+    spm_model: "sample_data/spm/tokenizer.model"
+    spm_vocab: "sample_data/spm/tokenizer.vocab"
+  apply_train: false
+
+dataset:
+  train_data: "sample_data/asr_train_data.json"
+  eval_data: "sample_data/asr_eval_data.json"
+  noise_data: "sample_data/noise_data.json"
+  dur_min_filter: 0.1
+  dur_max_filter: 60.0
+  batch_size: 16
+  
+  feat_type: "pcm"
+  feat_config:
+    dummy: -1
+  
+  data_aug_config:
+    use_speed_perturb: true
+    use_spec_aug: false
+    add_noise_proportion: 0.5
+    add_noise_config:
+      min_snr_db: 10
+      max_snr_db: 50
+      max_gain_db: 300.0
+
+encoder:
+  model: "Wav2Vec2"
+  config:
+    pretrained_model: "/mnt/e/Models/pretrained_models/facebook-wav2vec2-base-960h"
+    hidden_size: 768
+    label_dim: 128
+
+decoder:
+  model: "Identity"
+  config:
+    dummy: -1
+
+loss:
+  model: "CTC"
+  config:
+    blank_label: 0
+    reduction: "mean"
+
+metric:
+  decode_method: "ctc_greedy_search"
+
+optim_setup:
+  seperate_lr:
+    apply: true
+    config:
+      encoder_lr: 0.001
+      decoder_lr: 0.001
+  optimizer:
+    type: "AdamW"
+    config:
+      lr: 0.001
+      weight_decay: 0.0005
+  lr_scheduler:
+    type: "Warmup"
+    config:
+      warmup_steps: 20000
+    step_config:
+      interval: "step"
+      frequency: 1
+
+trainer:
+  accelerator: "gpu" 
+  devices: 1 
+  strategy: "ddp_find_unused_parameters_true" 
+  precision: "32-true"
+  max_epochs: 2000
+  val_check_interval: 1.0
+  accumulate_grad_batches: 1
+
+callbacks:
+  model_chkpt_config:
+    monitor: "wer"
+    mode: "min"
+    save_top_k: 10
+  frontend_save: true
+  global_cmvn:
+    apply: false  # Disable GlobelCmvn
+    pre_compute_cmvn: null
+
+finetune:
+  base_model: null 
+resume: null
