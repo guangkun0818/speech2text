@@ -31,11 +31,11 @@ class TestCharTokenizer(unittest.TestCase):
 
     def test_num_labels(self):
         self.assertEqual(
-            len(self._config["labels"]) + 2, len(self._tokenizer.labels))
+            len(self._config["labels"]) + 3, len(self._tokenizer.labels))
         self.assertIn("<blank_id>", self._tokenizer.labels)
         self.assertEqual("<blank_id>", self._tokenizer.labels[0])
-        self.assertIn("<sos>", self._tokenizer.labels)
-        self.assertEqual("<sos>", self._tokenizer.labels[-1])
+        self.assertIn("<sos/eos>", self._tokenizer.labels)
+        self.assertEqual("<sos/eos>", self._tokenizer.labels[-1])
 
     @parameterized.expand([
         ("season with salt and pepper and a little sugar to taste"),
@@ -85,8 +85,8 @@ class TestSubwordTokenizer(unittest.TestCase):
         self.assertNotIn("</s>", self._tokenizer.labels)
         self.assertIn("<blank_id>", self._tokenizer.labels)
         self.assertEqual("<blank_id>", self._tokenizer.labels[0])
-        self.assertIn("<sos>", self._tokenizer.labels)
-        self.assertEqual("<sos>", self._tokenizer.labels[-1])
+        self.assertIn("<sos/eos>", self._tokenizer.labels)
+        self.assertEqual("<sos/eos>", self._tokenizer.labels[-1])
 
     @parameterized.expand([
         ("season with salt and pepper and a little sugar to taste"),

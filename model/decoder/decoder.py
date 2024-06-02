@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 
 from model.decoder.identity import Identity, IdentityConfig
+from model.decoder.projector import Projector, ProjectorConfig
 
 
 class Decoder(nn.Module):
@@ -19,6 +20,8 @@ class Decoder(nn.Module):
 
         if config["model"] == "Identity":
             self.decoder = Identity(config=IdentityConfig(**config["config"]))
+        elif config["model"] == "Projector":
+            self.decoder = Projector(config=ProjectorConfig(**config["config"]))
         # TODO: Supporting other models
 
     def forward(self, x: torch.Tensor, length: torch.Tensor):

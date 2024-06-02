@@ -1,8 +1,8 @@
-# Demo training config of Conformer + CTC
+# Demo training config of Pretrained Wav2Vec2 + CTC
 
 task:
   type: "CTC"
-  name: "conformer-subword-ctc"
+  name: "wav2vec2-subword-ctc"
   export_path: "tasks/debug"
 
 tokenizer:
@@ -20,17 +20,13 @@ dataset:
   dur_max_filter: 60.0
   batch_size: 16
   
-  feat_type: "fbank"
+  feat_type: "pcm"
   feat_config:
-    num_mel_bins: 80
-    frame_length: 25
-    frame_shift: 10
-    dither: 0.0
-    samplerate: 16000
+    dummy: -1
   
   data_aug_config:
     use_speed_perturb: true
-    use_spec_aug: true
+    use_spec_aug: false
     add_noise_proportion: 0.5
     add_noise_config:
       min_snr_db: 10
@@ -38,27 +34,16 @@ dataset:
       max_gain_db: 300.0
 
 encoder:
-  model: "Conformer"
+  model: "Wav2Vec2"
   config:
-    bn_cmvn: false
-    feats_dim: 80
-    subsampling_rate: 4
-    input_dim: 256
-    num_heads: 4
-    ffn_dim: 2048
-    num_layers: 18
-    depthwise_conv_kernel_size: 31
-    dropout: 0.1
-    use_group_norm: false
-    convolution_first: false
-    output_dim: 256
+    pretrained_model: "/mnt/e/Models/pretrained_models/facebook-wav2vec2-base-960h"
+    hidden_size: 768
+    label_dim: 128
 
 decoder:
-  model: "Projector"
+  model: "Identity"
   config:
-    input_dim: 256
-    output_dim: 128
-    dropout_p: 0.1
+    dummy: -1
 
 loss:
   model: "CTC"
@@ -83,7 +68,7 @@ optim_setup:
   lr_scheduler:
     type: "Warmup"
     config:
-      warmup_steps: 20000
+      warmup_steps: 200
     step_config:
       interval: "step"
       frequency: 1
@@ -91,11 +76,13 @@ optim_setup:
 trainer:
   accelerator: "gpu" 
   devices: 1 
-  strategy: "ddp" 
+  strategy: "ddp_find_unused_parameters_true" 
   precision: "32-true"
   max_epochs: 2000
   val_check_interval: 1.0
-  accumulate_grad_batches: 1
+  accumulate_grad_batches: 10
+  gradient_clip_algorithm: "norm"
+  gradient_clip_val: 5.0
 
 callbacks:
   model_chkpt_config:
@@ -104,7 +91,7 @@ callbacks:
     save_top_k: 10
   frontend_save: true
   global_cmvn:
-    apply: true
+    apply: false  # Disable GlobelCmvn
     pre_compute_cmvn: null
 
 finetune:

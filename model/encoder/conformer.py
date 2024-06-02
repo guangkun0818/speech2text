@@ -15,6 +15,7 @@ from typing import Tuple
 @dataclasses.dataclass
 class ConformerConfig:
     """ torchaudio.models.Conformer Config API """
+    bn_cmvn: bool = False  # Use batchnorm layer as cmvn.
     feats_dim: int = 80
     subsampling_rate: int = 4
     input_dim: int = 512
@@ -41,8 +42,6 @@ class Subsampling(nn.Module):
 
     def __init__(self, idim, odim, subsampling_rate=4):
         super(Subsampling, self).__init__()
-        # Add BatchNorm before model to dynamically normalize training data
-        self._batchnorm = nn.BatchNorm1d(num_features=idim)
 
         if subsampling_rate == 4:
             # Subsampling rate = 4
@@ -113,8 +112,6 @@ class Subsampling(nn.Module):
         return padding_mask
 
     def forward(self, x: torch.Tensor, length: torch.Tensor):
-        # Training graph
-        x = self._batchnorm(x.transpose(1, 2)).transpose(1, 2)
         x = x.unsqueeze(1)  # (B, C, T, F)
         x = self.conv(x)
         b, c, t, f = x.size()
@@ -131,7 +128,6 @@ class Subsampling(nn.Module):
     @torch.inference_mode(mode=True)
     def inference(self, x: torch.Tensor):
         # Inference graph, excluding length output
-        x = self._batchnorm(x.transpose(1, 2)).transpose(1, 2)
         x = x.unsqueeze(1)  # (B, C, T, F)
         x = self.conv(x)
         b, c, t, f = x.size()
@@ -147,6 +143,7 @@ class Conformer(nn.Module):
     def __init__(self, config: ConformerConfig) -> None:
         super(Conformer, self).__init__()
         # Load config
+        self._bn_cmvn = config.bn_cmvn
         self._feats_dim = config.feats_dim
         self._subsampling_rate = config.subsampling_rate
         self._input_dim = config.input_dim
@@ -158,6 +155,10 @@ class Conformer(nn.Module):
         self._use_group_norm = config.use_group_norm
         self._convolution_first = config.convolution_first
         self._output_dim = config.output_dim
+
+        # Add BatchNorm before model to dynamically normalize training data
+        if self._bn_cmvn:
+            self._batchnorm = nn.BatchNorm1d(num_features=self._feats_dim)
 
         # Initialize Subsampling Module
         self._subsampling_module = Subsampling(
@@ -185,6 +186,9 @@ class Conformer(nn.Module):
     def forward(self, feats: torch.Tensor,
                 lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         # Training graph.
+        if self._bn_cmvn:
+            feats = self._batchnorm(feats.transpose(1, 2)).transpose(1, 2)
+
         output, lengths = self._subsampling_module(feats, lengths)
         output, lengths = self._conformer_module(output, lengths)
         output = output.transpose(1, 2)  # (B, T, Dim) -> (B, dim, T)
@@ -195,6 +199,9 @@ class Conformer(nn.Module):
     @torch.inference_mode(mode=True)
     def non_streaming_inference(self, feats: torch.Tensor) -> torch.Tensor:
         # Inference graph, length of output is excluded.
+        if self._bn_cmvn:
+            feats = self._batchnorm(feats.transpose(1, 2)).transpose(1, 2)
+
         output = self._subsampling_module.inference(feats)
         # Intuitively, only BatchSize = 1 support during inference, generate
         # dummy_length needed in conformer_module forward.

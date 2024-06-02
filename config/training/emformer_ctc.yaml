@@ -1,8 +1,8 @@
-# Demo training config of Conformer + CTC
+# Demo training config of Emformer + CTC
 
 task:
   type: "CTC"
-  name: "conformer-subword-ctc"
+  name: "emformer-subword-ctc"
   export_path: "tasks/debug"
 
 tokenizer:
@@ -38,19 +38,20 @@ dataset:
       max_gain_db: 300.0
 
 encoder:
-  model: "Conformer"
+  model: "Emformer"
   config:
-    bn_cmvn: false
     feats_dim: 80
     subsampling_rate: 4
-    input_dim: 256
-    num_heads: 4
+    infer_chunk_size: 20
+    emformer_input_dim: 512
+    num_heads: 8
     ffn_dim: 2048
-    num_layers: 18
-    depthwise_conv_kernel_size: 31
+    num_layers: 8
+    segment_length: 4
     dropout: 0.1
-    use_group_norm: false
-    convolution_first: false
+    left_context_length: 30
+    right_context_length: 0
+    max_memory_size: 0
     output_dim: 256
 
 decoder:
@@ -104,7 +105,7 @@ callbacks:
     save_top_k: 10
   frontend_save: true
   global_cmvn:
-    apply: true
+    apply: true   # GlobelCmvn is required.
     pre_compute_cmvn: null
 
 finetune:

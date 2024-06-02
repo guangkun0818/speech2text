@@ -19,6 +19,7 @@ class TestConformer(unittest.TestCase):
 
     def setUp(self) -> None:
         self._input_config = {
+            "bn_cmvn": False,
             "feats_dim": 80,
             "subsampling_rate": 4,
             "input_dim": 512,
