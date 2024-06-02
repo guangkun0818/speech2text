@@ -117,18 +117,20 @@ def run_task():
                 frontend_dir=TASK_EXPORT_PATH,
                 export_dir=TASK_EXPORT_PATH)
             callback_funcs.append(compute_cmvn)
-    else:
-        # If pre_compute_cmvn provide, backup global_mean and global_istd.
-        shutil.copyfile(
-            os.path.join(config["callbacks"]["global_cmvn"]["pre_compute_cmvn"],
-                         "global_mean.t"),
-            os.path.join(TASK_EXPORT_PATH, "global_mean.t"))
-        shutil.copyfile(
-            os.path.join(config["callbacks"]["global_cmvn"]["pre_compute_cmvn"],
-                         "global_istd.t"),
-            os.path.join(TASK_EXPORT_PATH, "global_istd.t"))
-        load_cmvn = callbacks.LoadGlobalCmvn(cmvn_dir=TASK_EXPORT_PATH)
-        callback_funcs.append(load_cmvn)
+        else:
+            # If pre_compute_cmvn provide, backup global_mean and global_istd.
+            shutil.copyfile(
+                os.path.join(
+                    config["callbacks"]["global_cmvn"]["pre_compute_cmvn"],
+                    "global_mean.t"),
+                os.path.join(TASK_EXPORT_PATH, "global_mean.t"))
+            shutil.copyfile(
+                os.path.join(
+                    config["callbacks"]["global_cmvn"]["pre_compute_cmvn"],
+                    "global_istd.t"),
+                os.path.join(TASK_EXPORT_PATH, "global_istd.t"))
+            load_cmvn = callbacks.LoadGlobalCmvn(cmvn_dir=TASK_EXPORT_PATH)
+            callback_funcs.append(load_cmvn)
 
     # ---- Setup trainer from config ----
     trainer = pl.Trainer(**config["trainer"],
