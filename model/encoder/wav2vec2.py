@@ -69,7 +69,7 @@ class Wav2Vec2Encoder(nn.Module):
     @staticmethod
     def _zero_mean_unit_var_norm(pcms: torch.Tensor,
                                  lengths: torch.Tensor = None):
-        # pcms: (B, T); lengths = (B)I
+        # pcms: (B, T); lengths = (B);
         # Data normalization with zero mean and unit var. Basically borrowed
         # from transformers of Huggingface.
         if lengths is not None:
