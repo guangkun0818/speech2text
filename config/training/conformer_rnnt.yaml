@@ -1,0 +1,129 @@
+# Demo training config of Conformer + CTC
+
+task:
+  type: "Rnnt"
+  name: "conformer-subword-rnnt"
+  export_path: "tasks/debug"
+
+tokenizer:
+  type: "subword"
+  config:
+    spm_model: "sample_data/spm/tokenizer.model"
+    spm_vocab: "sample_data/spm/tokenizer.vocab"
+  apply_train: false
+
+dataset:
+  train_data: "sample_data/asr_train_data.json"
+  eval_data: "sample_data/asr_eval_data.json"
+  noise_data: "sample_data/noise_data.json"
+  dur_min_filter: 0.1
+  dur_max_filter: 60.0
+  batch_size: 16
+  
+  feat_type: "fbank"
+  feat_config:
+    num_mel_bins: 80
+    frame_length: 25
+    frame_shift: 10
+    dither: 0.0
+    samplerate: 16000
+  
+  data_aug_config:
+    use_speed_perturb: true
+    use_spec_aug: true
+    add_noise_proportion: 0.5
+    add_noise_config:
+      min_snr_db: 10
+      max_snr_db: 50
+      max_gain_db: 300.0
+
+encoder:
+  model: "Conformer"
+  config:
+    bn_cmvn: false
+    feats_dim: 80
+    subsampling_rate: 4
+    input_dim: 256
+    num_heads: 4
+    ffn_dim: 2048
+    num_layers: 18
+    depthwise_conv_kernel_size: 31
+    dropout: 0.1
+    use_group_norm: false
+    convolution_first: false
+    output_dim: 256
+
+decoder:
+  model: "Identity"
+  config:
+    dummy: -1
+
+predictor:
+  model: "Lstm"
+  config:
+    num_symbols: 128
+    output_dim: 256
+    symbol_embedding_dim: 512
+    num_lstm_layers: 3
+    lstm_hidden_dim: 512
+    lstm_layer_norm: true
+    lstm_dropout: 0.3
+
+joiner:
+  input_dim: 256
+  output_dim: 128
+  prune_range: -1
+
+loss:
+  model: "Rnnt"
+  config:
+    blank_label: 0
+    reduction: "mean"
+
+metric:
+  decode_method: "rnnt_greedy_search"
+  max_token_step: 1
+
+optim_setup:
+  seperate_lr:
+    apply: true
+    config:
+      encoder_lr: 0.001
+      decoder_lr: 0.001
+      predictor_lr: 0.001
+      joiner_lr: 0.001
+  optimizer:
+    type: "AdamW"
+    config:
+      lr: 0.001
+      weight_decay: 0.0005
+  lr_scheduler:
+    type: "Warmup"
+    config:
+      warmup_steps: 20000
+    step_config:
+      interval: "step"
+      frequency: 1
+
+trainer:
+  accelerator: "gpu" 
+  devices: 1 
+  strategy: "ddp" 
+  precision: "32-true"
+  max_epochs: 20000
+  val_check_interval: 1.0
+  accumulate_grad_batches: 10
+
+callbacks:
+  model_chkpt_config:
+    monitor: "wer"
+    mode: "min"
+    save_top_k: 10
+  frontend_save: true
+  global_cmvn:
+    apply: true
+    pre_compute_cmvn: null
+
+finetune:
+  base_model: null 
+resume: null

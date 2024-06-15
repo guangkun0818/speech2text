@@ -41,7 +41,6 @@ class BaseRnntTask(pl.LightningModule):
         self._decoder_config = config["decoder"]
         self._predictor_config = config["predictor"]
         self._joiner_config = config["joiner"]
-        self._loss_config = config["loss"]
         self._metric_config = config["metric"]
         self._optim_config = config["optim_setup"]
 
@@ -53,7 +52,7 @@ class BaseRnntTask(pl.LightningModule):
         self._encoder = Encoder(self._encoder_config)
         self._decoder = Decoder(self._decoder_config)
         self._predictor = Predictor(self._predictor_config)
-        self._joiner = Joiner(self._joiner_config)
+        self._joiner = Joiner(config=JoinerConfig(**self._joiner_config))
         self._metric = AsrMetric(config=AsrMetricConfig(**self._metric_config),
                                  tokenizer=self._tokenizer,
                                  predictor=self._predictor,
@@ -165,6 +164,102 @@ class BaseRnntTask(pl.LightningModule):
 
 class RnntTask(BaseRnntTask):
     """ Vanilla Rnnt Task, unpruned rnnt loss. """
+
+    def __init__(self, config) -> None:
+        super(RnntTask, self).__init__(config)
+        self._loss_config = config["loss"]
+        self._loss = Loss(self._loss_config)
+
+    def training_step(self, batch, batch_idx):
+        """ DataAgumentation would be process every training step begins,
+            so, off-to-go batch input would be {
+                "feat": Tensor Float,
+                "feat_length": Tensor Long,
+                "label": Tensor Long,
+                "label_length": Tensor Long,
+        """
+        feat = self._global_cmvn(batch["feat"])
+
+        # Encoder foward
+        encoder_out, encoder_out_length = self._encoder(feat,
+                                                        batch["feat_length"])
+        # Decoder forward
+        decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                        encoder_out_length)
+        # Predictor forward
+        predictor_state = self._predictor.init_state()
+        predictor_out, predictor_length, _ = self._predictor(
+            batch["label"], batch["label_length"], predictor_state)
+        # Joiner forward
+        joiner_out, boundary, ranges, _ = self._joiner(decoder_out,
+                                                       decoder_out_length,
+                                                       predictor_out,
+                                                       predictor_length,
+                                                       batch["label"])
+
+        # Organize batch as Loss API
+        loss_input_batch = {
+            "log_probs": joiner_out,
+            "inputs_length": decoder_out_length,
+            "targets": batch["label"],
+            "targets_length": batch["label_length"],
+            "boundary": boundary,
+            "ranges": ranges  # API compliance with pruned rnnt.
+        }
+
+        loss = self._loss(loss_input_batch)
+
+        if batch_idx % 100 == 0:
+            glog.info(
+                "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}"
+                .format(self.current_epoch, batch_idx, self.global_step, loss))
+
+        self.log("train_loss", loss, sync_dist=True, prog_bar=True, logger=True)
+        return loss.mean()
+
+    def validation_step(self, batch, batch_idx):
+        """ DataAgumentation would be exluded every eval step begins. """
+
+        feat = self._global_cmvn(batch["feat"])
+
+        # Encoder foward
+        encoder_out, encoder_out_length = self._encoder(feat,
+                                                        batch["feat_length"])
+        # Decoder forward
+        decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                        encoder_out_length)
+        # Predictor forward
+        predictor_state = self._predictor.init_state()
+        predictor_out, predictor_length, _ = self._predictor(
+            batch["label"], batch["label_length"], predictor_state)
+        # Joiner forward
+        joiner_out, boundary, ranges, _ = self._joiner(decoder_out,
+                                                       decoder_out_length,
+                                                       predictor_out,
+                                                       predictor_length,
+                                                       batch["label"])
+
+        # Organize batch as Loss API
+        loss_input_batch = {
+            "log_probs": joiner_out,
+            "inputs_length": decoder_out_length,
+            "targets": batch["label"],
+            "targets_length": batch["label_length"],
+            "boundary": boundary,
+            "ranges": ranges  # API compliance with pruned rnnt.
+        }
+
+        loss = self._loss(loss_input_batch)
+        glog.info("Evaluating......")
+        wer = self._metric(decoder_out, decoder_out_length, batch["label"])
+
+        if batch_idx % 50 == 0:
+            glog.info(
+                "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}"
+                .format(self.current_epoch, batch_idx, self.global_step, loss))
+
+        eval_info = {"val_loss": loss, "wer": wer}
+        self.log_dict(eval_info, sync_dist=True, prog_bar=True)
 
 
 class PrunedRnntTask(BaseRnntTask):
