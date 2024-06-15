@@ -3,6 +3,7 @@
 # Created on 2024.04.20
 """ Rnnt-arch ASR task impl. """
 
+import abc
 import copy
 import glog
 import torch
@@ -22,10 +23,144 @@ from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
 from model.loss.loss import Loss
 from model.utils import AsrMetric, AsrMetricConfig
+from optimizer.optim_setup import OptimSetup
 
 
 class BaseRnntTask(pl.LightningModule):
-    """ Build CTC task """
+    """ Base Rnnt task setting, custom-designed Rnnt task should inherited 
+        from this abstract task.
+    """
+
+    def __init__(self, config) -> None:
+        super(BaseRnntTask, self).__init__()
+
+        # Split configs by the yaml
+        self._tokenizer_config = config["tokenizer"]
+        self._dataset_config = config["dataset"]
+        self._encoder_config = config["encoder"]
+        self._decoder_config = config["decoder"]
+        self._predictor_config = config["predictor"]
+        self._joiner_config = config["joiner"]
+        self._loss_config = config["loss"]
+        self._metric_config = config["metric"]
+        self._optim_config = config["optim_setup"]
+
+        # Modules fo rnnt task building.
+        self._tokenizer = TokenizerSetup(self._tokenizer_config)
+        self._frontend = self._get_frontend(copy.deepcopy(config["dataset"]))
+        self._global_cmvn = GlobalCmvnLayer(
+            config=self._dataset_config)  # Register CMVN buffer
+        self._encoder = Encoder(self._encoder_config)
+        self._decoder = Decoder(self._decoder_config)
+        self._predictor = Predictor(self._predictor_config)
+        self._joiner = Joiner(self._joiner_config)
+        self._metric = AsrMetric(config=AsrMetricConfig(**self._metric_config),
+                                 tokenizer=self._tokenizer,
+                                 predictor=self._predictor,
+                                 joiner=self._joiner)
+
+    def _get_frontend(self, config):
+        # Get Frontend from config to export frontend compute graph
+        if config["feat_type"] == "fbank":
+            # Set dither as 0.0 when output frontend
+            config["feat_config"]["dither"] = 0.0
+            return KaldiWaveFeature(**config["feat_config"])
+        elif config["feat_type"] == "pcm":
+            return DummyFrontend(**config["feat_config"])
+        else:
+            raise ValueError(
+                "Only 'fbank' and 'pcm' feat type supported currently.")
+
+    def non_streaming_inference(self, feats):
+        ...
+
+    def simu_streaming_inference(self, feats):
+        ...
+
+    def train_dataloader(self):
+        """ Set up train dataloader. """
+
+        dataset = AsrTrainDataset(self._dataset_config, self._tokenizer)
+        dataloader = DataLoader(dataset=dataset,
+                                shuffle=True,
+                                collate_fn=asr_collate_fn,
+                                batch_size=self._dataset_config["batch_size"],
+                                num_workers=4)
+        return dataloader
+
+    def val_dataloader(self):
+        """ Set up eval dataloader. """
+
+        dataset = AsrEvalDataset(self._dataset_config, self._tokenizer)
+        dataloader = DataLoader(dataset=dataset,
+                                collate_fn=asr_collate_fn,
+                                batch_size=self._dataset_config["batch_size"],
+                                num_workers=4)
+        return dataloader
+
+    @abc.abstractmethod
+    def training_step(self, batch, batch_idx):
+        # Different training step should be implemented corresponding to given
+        # configured task.
+        ...
+
+    @abc.abstractmethod
+    def validation_step(self, batch, batch_idx):
+        # Different validation step should be implemented corresponding to given
+        # configured task.
+        ...
+
+    def configure_sharded_model(self):
+        # modules are sharded across processes
+        # as soon as they are wrapped with 'wrap'.
+        # During the forward/backward passes, weights get synced across processes
+        # and de-allocated once computation is complete, saving memory.
+
+        # Wraps the layer in a Fully Sharded Wrapper automatically
+        self._global_cmvn = wrap(self._global_cmvn)
+        self._encoder = wrap(self._encoder)
+        self._decoder = wrap(self._decoder)
+        self._predictor = wrap(self._predictor)
+        self._joiner = wrap(self._joiner)
+
+    def configure_optimizers(self):
+        """ Optimizer configuration """
+        Optimizer, LR_Scheduler = OptimSetup(self._optim_config)
+        if self._optim_config["seperate_lr"]["apply"]:
+            params = [{
+                "params": self._encoder.parameters(),
+                "name": "encoder_lr",
+                "lr": self._optim_config["seperate_lr"]["config"]["encoder_lr"]
+            }, {
+                "params": self._decoder.parameters(),
+                "name": "decoder_lr",
+                "lr": self._optim_config["seperate_lr"]["config"]["decoder_lr"]
+            }, {
+                "params":
+                    self._predictor.parameters(),
+                "name":
+                    "predictor_lr",
+                "lr":
+                    self._optim_config["seperate_lr"]["config"]["predictor_lr"]
+            }, {
+                "params": self._joiner.parameters(),
+                "name": "joiner_lr",
+                "lr": self._optim_config["seperate_lr"]["config"]["joiner_lr"]
+            }]
+        else:
+            params = self.parameters()
+
+        optimizer = Optimizer(params,
+                              **self._optim_config["optimizer"]["config"])
+        lr_scheduler = LR_Scheduler(
+            optimizer=optimizer, **self._optim_config["lr_scheduler"]["config"])
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": lr_scheduler,
+                **self._optim_config["lr_scheduler"]["step_config"]
+            }
+        }
 
 
 class RnntTask(BaseRnntTask):
