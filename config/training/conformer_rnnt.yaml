@@ -1,4 +1,4 @@
-# Demo training config of Conformer + CTC
+# Demo training config of Conformer/LSTM + Rnnt
 
 task:
   type: "Rnnt"
