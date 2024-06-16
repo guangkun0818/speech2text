@@ -264,3 +264,114 @@ class RnntTask(BaseRnntTask):
 
 class PrunedRnntTask(BaseRnntTask):
     """ k2 Pruned Rnnt task. """
+
+    def __init__(self, config) -> None:
+        super(PrunedRnntTask, self).__init__(config=config)
+
+        assert config["loss"]["model"] == "Pruned_Rnnt"
+        self._loss_config = config["loss"]
+        self._simple_loss_scale = config["loss"]["simple_loss_scale"]
+        self._pruned_loss_scale = config["loss"]["pruned_loss_scale"]
+        self._loss = Loss(self._loss_config)
+
+    def training_step(self, batch, batch_idx):
+        """ DataAgumentation would be process every training step begins,
+            so, off-to-go batch input would be {
+                "feat": Tensor Float,
+                "feat_length": Tensor Long,
+                "label": Tensor Long,
+                "label_length": Tensor Long,
+        """
+        feat = self._global_cmvn(batch["feat"])
+
+        # Encoder foward
+        encoder_out, encoder_out_length = self._encoder(feat,
+                                                        batch["feat_length"])
+        # Decoder forward
+        decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                        encoder_out_length)
+        # Predictor forward
+        predictor_state = self._predictor.init_state()
+        predictor_out, predictor_length, _ = self._predictor(
+            batch["label"], batch["label_length"], predictor_state)
+
+        # Joiner forward
+        joiner_out, boundary, ranges, simple_loss = self._joiner(
+            decoder_out, decoder_out_length, predictor_out, predictor_length,
+            batch["label"])
+
+        # Organize batch as Loss API
+        loss_input_batch = {
+            "log_probs": joiner_out,
+            "inputs_length": decoder_out_length,
+            "targets": batch["label"],
+            "targets_length": batch["label_length"],
+            "boundary": boundary,
+            "ranges": ranges  # API compliance with pruned rnnt.
+        }
+
+        pruned_loss = self._loss(loss_input_batch)
+        loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss
+
+        if batch_idx % 100 == 0:
+            glog.info(
+                "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {}"
+                .format(self.current_epoch, batch_idx, self.global_step, loss,
+                        simple_loss, pruned_loss))
+        train_info = {
+            "train_loss": loss,
+            "train_loss/simple_loss": simple_loss,
+            "train_loss/pruned_loss": pruned_loss,
+        }
+        self.log_dict(train_info, sync_dist=True, prog_bar=True, logger=True)
+
+        return loss.mean()
+
+    def validation_step(self, batch, batch_idx):
+        """ DataAgumentation would be exluded every eval step begins. """
+
+        feat = self._global_cmvn(batch["feat"])
+
+        # Encoder foward
+        encoder_out, encoder_out_length = self._encoder(feat,
+                                                        batch["feat_length"])
+        # Decoder forward
+        decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                        encoder_out_length)
+        # Predictor forward
+        predictor_state = self._predictor.init_state()
+        predictor_out, predictor_length, _ = self._predictor(
+            batch["label"], batch["label_length"], predictor_state)
+
+        # Joiner forward
+        joiner_out, boundary, ranges, simple_loss = self._joiner(
+            decoder_out, decoder_out_length, predictor_out, predictor_length,
+            batch["label"])
+
+        # Organize batch as Loss API
+        loss_input_batch = {
+            "log_probs": joiner_out,
+            "inputs_length": decoder_out_length,
+            "targets": batch["label"],
+            "targets_length": batch["label_length"],
+            "boundary": boundary,
+            "ranges": ranges  # API compliance with pruned rnnt.
+        }
+
+        pruned_loss = self._loss(loss_input_batch)
+        loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss
+        glog.info("Evaluating......")
+        wer = self._metric(decoder_out, decoder_out_length, batch["label"])
+
+        if batch_idx % 50 == 0:
+            glog.info(
+                "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {} wer: {}"
+                .format(self.current_epoch, batch_idx, self.global_step, loss,
+                        simple_loss, pruned_loss, wer))
+        eval_info = {
+            "val_loss": loss,
+            "val_loss/simple_loss": simple_loss,
+            "val_loss/pruned_loss": pruned_loss,
+            "wer": wer
+        }
+        self.log_dict(eval_info, sync_dist=True, prog_bar=True, logger=True)

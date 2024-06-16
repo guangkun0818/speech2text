@@ -23,7 +23,7 @@ class Loss(nn.Module):
             self.loss = CtcLoss(config=CtcLossConfig(**config["config"]))
         elif config["model"] == "Rnnt":
             self.loss = RnntLoss(config=RnntLossConfig(**config["config"]))
-        elif config["model"] == "Pruned_Runt":
+        elif config["model"] == "Pruned_Rnnt":
             self.loss = PrunedRnntLoss(config=PrunedRnntLossConfig(
                 **config["config"]))
 
