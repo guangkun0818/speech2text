@@ -420,3 +420,67 @@ class PrunedRnntTask(BaseRnntTask):
             "wer": wer
         }
         self.log_dict(eval_info, sync_dist=True, prog_bar=True, logger=True)
+
+    def configure_sharded_model(self):
+        # modules are sharded across processes
+        # as soon as they are wrapped with 'wrap'.
+        # During the forward/backward passes, weights get synced across processes
+        # and de-allocated once computation is complete, saving memory.
+
+        # Wraps the layer in a Fully Sharded Wrapper automatically
+        self._global_cmvn = wrap(self._global_cmvn)
+        self._encoder = wrap(self._encoder)
+        self._decoder = wrap(self._decoder)
+        self._predictor = wrap(self._predictor)
+        self._joiner = wrap(self._joiner)
+        if self._enable_ctc:
+            self._ctc_projector = wrap(self._ctc_projector)
+
+    def configure_optimizers(self):
+        """ Optimizer configuration """
+        Optimizer, LR_Scheduler = OptimSetup(self._optim_config)
+        if self._optim_config["seperate_lr"]["apply"]:
+            params = [{
+                "params": self._encoder.parameters(),
+                "name": "encoder_lr",
+                "lr": self._optim_config["seperate_lr"]["config"]["encoder_lr"]
+            }, {
+                "params": self._decoder.parameters(),
+                "name": "decoder_lr",
+                "lr": self._optim_config["seperate_lr"]["config"]["decoder_lr"]
+            }, {
+                "params":
+                    self._predictor.parameters(),
+                "name":
+                    "predictor_lr",
+                "lr":
+                    self._optim_config["seperate_lr"]["config"]["predictor_lr"]
+            }, {
+                "params": self._joiner.parameters(),
+                "name": "joiner_lr",
+                "lr": self._optim_config["seperate_lr"]["config"]["joiner_lr"]
+            }]
+            if self._enable_ctc:
+                params.append({
+                    "params":
+                        self._ctc_projector.parameters(),
+                    "name":
+                        "ctc_projector_lr",
+                    "lr":
+                        self._optim_config["seperate_lr"]["config"]
+                        ["ctc_projector_lr"]
+                })
+        else:
+            params = self.parameters()
+
+        optimizer = Optimizer(params,
+                              **self._optim_config["optimizer"]["config"])
+        lr_scheduler = LR_Scheduler(
+            optimizer=optimizer, **self._optim_config["lr_scheduler"]["config"])
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": lr_scheduler,
+                **self._optim_config["lr_scheduler"]["step_config"]
+            }
+        }

@@ -88,7 +88,7 @@ loss:
   config:
     termination_symbol: 0  # <blank id> = 0
     reduction: "mean"
-  enable_ctc: false
+  enable_ctc: true
   ctc_config:
     blank_label: 0
     reduction: "mean"
@@ -105,6 +105,7 @@ optim_setup:
       decoder_lr: 0.001
       predictor_lr: 0.001
       joiner_lr: 0.001
+      ctc_projector_lr: 0.001
   optimizer:
     type: "AdamW"
     config:
