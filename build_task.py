@@ -22,7 +22,7 @@ from tools.model_average import model_average
 from tools.spm_train import spm_training_preprocess
 
 from ctc_task import CtcTask
-from rnnt_task import RnntTask, PrunedRnntTask
+from rnnt_task import RnntTask, CtcHybridRnnt, PrunedRnntTask
 
 FLAGS = gflags.FLAGS
 
@@ -35,6 +35,7 @@ class TaskFactory(Enum):
     """ Task Factory, build selected task from config """
     CTC = CtcTask
     Rnnt = RnntTask
+    CTC_Hybrid_Rnnt = CtcHybridRnnt
     Pruned_Rnnt = PrunedRnntTask
 
 
