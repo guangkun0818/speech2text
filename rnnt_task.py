@@ -273,6 +273,18 @@ class PrunedRnntTask(BaseRnntTask):
         self._simple_loss_scale = config["loss"]["simple_loss_scale"]
         self._pruned_loss_scale = config["loss"]["pruned_loss_scale"]
         self._loss = Loss(self._loss_config)
+        self._enable_ctc = self._loss_config["enable_ctc"]
+
+        if self._enable_ctc:
+            self._ctc_config = {
+                "model": "CTC",
+                "config": {
+                    **self._loss_config["ctc_config"]
+                }
+            }
+            self._ctc_loss = Loss(self._ctc_config)
+            self._ctc_projector_config = config["ctc_projector"]
+            self._ctc_projector = Decoder(self._ctc_projector_config)
 
     def training_step(self, batch, batch_idx):
         """ DataAgumentation would be process every training step begins,
@@ -311,17 +323,33 @@ class PrunedRnntTask(BaseRnntTask):
         }
 
         pruned_loss = self._loss(loss_input_batch)
-        loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss
+
+        if self._enable_ctc:
+            logits, logits_length = self._ctc_projector(decoder_out,
+                                                        decoder_out_length)
+            ctc_loss_input_batch = {
+                "log_probs": logits,
+                "inputs_length": logits_length,
+                "targets": batch["label"],
+                "targets_length": batch["label_length"],
+            }
+
+            ctc_loss = self._ctc_loss(ctc_loss_input_batch)
+            loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss + ctc_loss
+        else:
+            ctc_loss = 0.0
+            loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss
 
         if batch_idx % 100 == 0:
             glog.info(
-                "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {}"
+                "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {} ctc_loss {}"
                 .format(self.current_epoch, batch_idx, self.global_step, loss,
-                        simple_loss, pruned_loss))
+                        simple_loss, pruned_loss, ctc_loss))
         train_info = {
             "train_loss": loss,
             "train_loss/simple_loss": simple_loss,
             "train_loss/pruned_loss": pruned_loss,
+            "train_loss/ctc_loss": ctc_loss,
         }
         self.log_dict(train_info, sync_dist=True, prog_bar=True, logger=True)
 
@@ -359,19 +387,36 @@ class PrunedRnntTask(BaseRnntTask):
         }
 
         pruned_loss = self._loss(loss_input_batch)
-        loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss
+
+        if self._enable_ctc:
+            logits, logits_length = self._ctc_projector(decoder_out,
+                                                        decoder_out_length)
+            ctc_loss_input_batch = {
+                "log_probs": logits,
+                "inputs_length": logits_length,
+                "targets": batch["label"],
+                "targets_length": batch["label_length"],
+            }
+
+            ctc_loss = self._ctc_loss(ctc_loss_input_batch)
+            loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss + ctc_loss
+        else:
+            ctc_loss = 0.0
+            loss = self._simple_loss_scale * simple_loss + self._pruned_loss_scale * pruned_loss
+
         glog.info("Evaluating......")
         wer = self._metric(decoder_out, decoder_out_length, batch["label"])
 
         if batch_idx % 50 == 0:
             glog.info(
-                "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {} wer: {}"
+                "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {} ctc_loss: {} wer: {}"
                 .format(self.current_epoch, batch_idx, self.global_step, loss,
-                        simple_loss, pruned_loss, wer))
+                        simple_loss, pruned_loss, ctc_loss, wer))
         eval_info = {
             "val_loss": loss,
             "val_loss/simple_loss": simple_loss,
             "val_loss/pruned_loss": pruned_loss,
+            "val_loss/ctc_loss": ctc_loss,
             "wer": wer
         }
         self.log_dict(eval_info, sync_dist=True, prog_bar=True, logger=True)

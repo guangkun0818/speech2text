@@ -74,12 +74,23 @@ joiner:
   output_dim: 128
   prune_range: 5 # Set prune_range > 0
 
+ctc_projector:
+  model: "Projector"
+  config:
+    input_dim: 256
+    output_dim: 128
+    dropout_p: 0.1
+
 loss:
   model: "Pruned_Rnnt"
   simple_loss_scale: 0.5
   pruned_loss_scale: 0.5
   config:
     termination_symbol: 0  # <blank id> = 0
+    reduction: "mean"
+  enable_ctc: false
+  ctc_config:
+    blank_label: 0
     reduction: "mean"
 
 metric:
