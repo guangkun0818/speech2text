@@ -71,17 +71,23 @@ class TestJoiner(unittest.TestCase):
 
     def test_joiner_torchscript_export(self):
         # Unittest of joiner torchscript export
+        beam_size = 4
         self._pruned_joiner.train(False)
         ts_joiner = torch.jit.script(self._pruned_joiner)
 
         curr_hidden = torch.rand(1, 1, 512)
-        prev_token = torch.rand(1, 1, 512)
+        prev_token = torch.rand(beam_size, 1, 512)
 
         # (1, D)
         next_token_logits = ts_joiner.streaming_step(curr_hidden, prev_token)
         self.assertEqual(len(next_token_logits.shape), 2)
-        self.assertEqual(next_token_logits.shape[0], 1)
+        self.assertEqual(next_token_logits.shape[0], beam_size)
         self.assertEqual(next_token_logits.shape[1], 1000)
+
+    def test_joiner_onnx_export(self):
+        # Unittest of joiner onnx export
+        export_file = "test_logs/joiner.onnx"
+        self._pruned_joiner.onnx_export(export_file)
 
 
 if __name__ == "__main__":
