@@ -22,6 +22,7 @@ class JoinerConfig:
     prune_range: int = 5  # specify as -1 if pruned rnnt loss not applied
     lm_scale: float = 0.0  # lm_scale applied in simple_loss of pruned_rnnt
     am_scale: float = 0.0  # am_scale applied in simple_loss of pruned_rnnt
+    use_out_project: bool = True  # If apply last output projection, if false, params saved
 
 
 class Joiner(nn.Module):
@@ -46,9 +47,13 @@ class Joiner(nn.Module):
         else:
             raise ValueError(f"Unsupported activation {config.activation}")
 
-        self._out_projection = nn.Sequential(
-            nn.Linear(self._output_dim, self._inner_dim),
-            nn.Linear(self._inner_dim, self._output_dim))
+        self._use_out_project = config.use_out_project
+        if self._use_out_project:
+            self._out_projection = nn.Sequential(
+                nn.Linear(self._output_dim, self._inner_dim),
+                nn.Linear(self._inner_dim, self._output_dim))
+        else:
+            self._out_projection = nn.Identity()  # Placeholder
 
         self._log_softmax = nn.LogSoftmax(dim=-1)
 

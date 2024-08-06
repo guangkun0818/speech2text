@@ -26,7 +26,8 @@ class TestJoiner(unittest.TestCase):
             "input_dim": 512,
             "output_dim": 1000,
             "activation": "relu",
-            "prune_range": 5
+            "prune_range": 5,
+            "use_out_project": False
         }
         self._pruned_joiner = Joiner(config=JoinerConfig(**self._pruned_config))
 
@@ -87,6 +88,8 @@ class TestJoiner(unittest.TestCase):
     def test_joiner_onnx_export(self):
         # Unittest of joiner onnx export
         export_file = "test_logs/joiner.onnx"
+        glog.info("Num of params: {}".format(
+            sum(param.numel() for param in self._pruned_joiner.parameters())))
         self._pruned_joiner.onnx_export(export_file)
 
 
