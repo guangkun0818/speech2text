@@ -29,14 +29,15 @@ class StatelessPredictor(nn.Module):
     def __init__(self, config: StatelessPredictorConfig) -> None:
         super(StatelessPredictor, self).__init__()
 
-        # NOTE: Start of sentence token ‹sos›. Last token of token list
+        # NOTE: Start of sentence token <sos>. Last token of token list
         self._sos_token = config.num_symbols - 1
         self._blank_token = 0  # 0 is strictly set for both Ctc and Rnnt.
+
         self._embedding_dim = config.symbol_embedding_dim
         self._num_symbols = config.num_symbols
         self._embedding = nn.Embedding(num_embeddings=self._num_symbols,
                                        embedding_dim=self._embedding_dim)
-        assert config.context_size >= 1, "context_size should be greater than or eq to 0"
+        assert config.context_size >= 1, "context_size should be greater than or eq to 1"
         self._context_size = config.context_size
         self._output_dim = config.output_dim
 
@@ -61,9 +62,10 @@ class StatelessPredictor(nn.Module):
         return self._blank_token
 
     def _left_padding(self, x: torch.Tensor) -> torch.Tensor:
-        # left padding input tokens with < blank_id›, only when training.
-        # TODO: Future can use ‹sos> and ‹eos› to modeling the completeness
-        # of Sentence to get preciser endpoint where left_padding ‹sos> and # right padding ‹eos>
+        # left padding input tokens with <blank_id>, only when training.
+        # TODO: Future can use <sos> and <eos> to modeling the completeness
+        # of Sentence to get preciser endpoint where left_padding <sos> and
+        # right padding <eos>
         assert len(x.shape) == 2  # (B, U)
         return F.pad(x.float(), (1, 0, 0, 0), value=float(self.blank_token)).to(
             torch.int32)  # (B, 1 + U)
@@ -154,14 +156,14 @@ class StatelessPredictor(nn.Module):
                 "y": {
                     0: "N"
                 },
-                "decoder _out": {
+                "decoder_out": {
                     0: "N"
-                }
+                },
             },
         )
 
         meta_data = {
-            "conetext_size": str(ctx_size),
+            "context_size": str(ctx_size),
             "vocab_size": str(vocab_size),
         }
 
