@@ -9,8 +9,9 @@ import torch
 import torch.nn as nn
 
 from typing import List, Tuple, Optional
-from model.predictor.lstm_predictor import LstmPredictor
-from model.predictor.lstm_predictor import LstmPredictorConfig
+from model.predictor.lstm_predictor import (LstmPredictor, LstmPredictorConfig)
+from model.predictor.stateless_predictor import (StatelessPredictor,
+                                                 StatelessPredictorConfig)
 
 
 class Predictor(nn.Module):
@@ -21,6 +22,9 @@ class Predictor(nn.Module):
 
         if config["model"] == "Lstm":
             self.predictor = LstmPredictor(config=LstmPredictorConfig(
+                **config["config"]))
+        elif config["model"] == "Stateless":
+            self.predictor = StatelessPredictor(config=StatelessPredictorConfig(
                 **config["config"]))
         else:
             raise NotImplementedError
