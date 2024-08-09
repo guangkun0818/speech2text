@@ -13,15 +13,19 @@ from parameterized import parameterized
 from dataset.utils import TokenizerSetup
 from model.decoding import ctc_greedy_search, reference_decoder
 from model.decoding import rnnt_greedy_search, RnntGreedyDecoding
+from model.decoding import RnntBeamDecoding
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
 
 # (B, T, D) = (2, 8, 5)
-_LOGITS = torch.Tensor([[0.6, 0.2, 0.1, 0.1, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0],
-                        [1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0,
+_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 1.0,
                          0.0]]).unsqueeze(0).repeat(2, 1, 1)
 
 
@@ -52,7 +56,7 @@ class TestCtcGreedySearch(unittest.TestCase):
 
     # Params: (ground_truth, labels, tokenzier)
     @parameterized.expand([
-        (torch.Tensor([[1, 1, 2, 2], [1, 2, 3, 0]]), ["aabb", "abc"]),
+        (torch.Tensor([[2, 2, 3, 3], [2, 3, 4, 0]]), ["aabb", "abc"]),
     ])
     def test_decode_reference_tensor_char(self, ground_truth, labels):
         # Unittest of decoding reference tensor, char based
@@ -153,6 +157,51 @@ class TestRnntGreedyDecoding(unittest.TestCase):
         result = rnnt_greedy_search(hidden_states=hidden_states,
                                     inputs_length=input_lengths,
                                     decode_session=self._decode_session)
+        glog.info(result)
+
+
+class TestRnntBeamDecoding(unittest.TestCase):
+    """ Unittest of rnnt beam decoding """
+
+    def setUp(self) -> None:
+        self._tokenzier_config = {
+            "type": "subword",
+            "config": {
+                "spm_model": "sample_data/spm/tokenizer.model",
+                "spm_vocab": "sample_data/spm/tokenizer.vocab"
+            }
+        }
+        self._tokenzier = TokenizerSetup(self._tokenzier_config)
+
+        self._predictor_config = {
+            "model": "Lstm",
+            "config": {
+                "num_symbols": 128,
+                "output_dim": 512,
+                "symbol_embedding_dim": 256,
+                "num_lstm_layers": 3,
+                "lstm_hidden_dim": 256,
+            }
+        }
+        self._predictor = Predictor(config=self._predictor_config)
+
+        # Input dim should be eq to predictor output_dim, output_dim
+        # should be same as num_symbols of predictor.
+        self._joiner_config = {
+            "input_dim": 512,
+            "output_dim": 128,
+            "activation": "relu"
+        }
+        self._joiner = Joiner(config=JoinerConfig(**self._joiner_config))
+        self._decode_session = RnntBeamDecoding(predictor=self._predictor,
+                                                joiner=self._joiner,
+                                                tokenizer=self._tokenzier,
+                                                beam_size=4,
+                                                cutoff_top_k=4)
+
+    def test_rnnt_beam_decode(self):
+        hidden_states = torch.rand(1, 64, 512)
+        result = self._decode_session.decode(hidden_states)
         glog.info(result)
 
 
