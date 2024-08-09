@@ -5,6 +5,7 @@
     and Rnnt decoder included.
 """
 
+import abc
 import dataclasses
 import math
 import torch
@@ -15,15 +16,54 @@ from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner
 
 
-def _ctc_decoder_predictions_tensor(tensor: torch.Tensor, tokenizer: Tokenizer):
-    """ Decodes a sequence of labels to words """
-    # Default blank_id is 0 in ctc loss
-    blank_id = 0
-    hypotheses = []
-    prediction_cpu_tensor = tensor.long().cpu()
-    # iterate over batch
-    for batch_id in range(prediction_cpu_tensor.shape[0]):
-        prediction = prediction_cpu_tensor[batch_id].numpy().tolist()
+class DecodingMethod(abc.ABC):
+    """ Abstract class for decoding method """
+
+    @abc.abstractmethod
+    def decode(self, hidden_states: torch.Tensor) -> str:
+        pass
+
+
+def batch_search(hidden_states: torch.Tensor, inputs_length: torch.Tensor,
+                 decode_session: DecodingMethod):
+    """ Factory method for batch decoding.
+        Args:
+            hidden_states: (batch, seq_len, encoder_out_dim) 
+            inputs_length (batch)
+            decode_session: Built instance of DecodingMethod
+        return:
+            hypotheses: List[str], List of decoded text of whole batches.
+    """
+    results = []
+    for entry_id in range(hidden_states.shape[0]):
+        actual_1 = inputs_length[entry_id].item()
+        actual_hidden_s = hidden_states[entry_id:entry_id + 1, :actual_1, :]
+        results.append(decode_session.decode(actual_hidden_s))
+
+    return results
+
+
+class CtcGreedyDecoding(DecodingMethod):
+    """ CTC greedy decoding impl """
+
+    def __init__(self, tokenizer: Tokenizer) -> None:
+        super(CtcGreedyDecoding, self).__init__()
+
+        self._tokenizer = tokenizer
+
+    def decode(self, hidden_states: torch.Tensor) -> str:
+        """ Decodes a sequence of labels to words """
+        assert hidden_states.shape[0] == 1, "Support BatchSize = 1 only."
+        assert hidden_states.shape[-1] == len(self._tokenizer.labels)
+
+        # (1, seq_len, label_dim) -> (1, seq_len)
+        hidden_states = torch.argmax(hidden_states, dim=2,
+                                     keepdim=True).squeeze(-1)
+
+        # Default blank_id is 0 in ctc loss
+        blank_id = 0
+        prediction_cpu_tensor = hidden_states.long().cpu()
+        prediction = prediction_cpu_tensor[0].numpy().tolist()
         # CTC decoding procedure
         decoded_prediction = []
         previous = 0  # id of a blank symbol
@@ -32,9 +72,9 @@ def _ctc_decoder_predictions_tensor(tensor: torch.Tensor, tokenizer: Tokenizer):
                 decoded_prediction.append(p)
             previous = p
         # Tokenizer will decode Tensor of token_id into text
-        hypothesis = tokenizer.decode(torch.Tensor(decoded_prediction).long())
-        hypotheses.append(hypothesis)
-    return hypotheses
+        hypothesis = self._tokenizer.decode(
+            torch.Tensor(decoded_prediction).long())
+        return hypothesis
 
 
 def reference_decoder(tensor: torch.Tensor, tokenizer: Tokenizer):
@@ -60,29 +100,7 @@ def reference_decoder(tensor: torch.Tensor, tokenizer: Tokenizer):
     return references
 
 
-def ctc_greedy_search(log_probs: torch.Tensor, inputs_length: torch.Tensor,
-                      tokenizer: Tokenizer):
-    """ Ctc Greedy search of log_probs
-        Args:
-            log_probs: (batch, seq_len, label_dim) 
-            inputs_length (batch)
-            tokenizer: training tokenizer (char or subward, or more)
-        return:
-            hypotheses: List[str], List of decoded text of whole batches.
-    """
-    assert log_probs.shape[-1] == len(tokenizer.labels)
-    greedy_result = torch.argmax(log_probs, dim=2, keepdim=True).squeeze(-1)
-
-    # Generate mask of greedy search result for padding applied in batch
-    mask = torch.arange(inputs_length.max()).unsqueeze(0).to(
-        inputs_length.device) > inputs_length.unsqueeze(-1) - 1
-    # Fill the padding parts as 0, default blank_id
-    greedy_result = greedy_result.masked_fill(mask, 0).long()
-    hypotheses = _ctc_decoder_predictions_tensor(greedy_result, tokenizer)
-    return hypotheses
-
-
-class RnntGreedyDecoding(object):
+class RnntGreedyDecoding(DecodingMethod):
     """ Internal Rnnt Greedy decoding
         Args:
             tokenizer: training tokenizer (char or subword, or more) 
@@ -160,25 +178,6 @@ class RnntGreedyDecoding(object):
         return self._tokenizer.decode(torch.Tensor(decoded_result).long())
 
 
-def rnnt_greedy_search(hidden_states: torch.Tensor, inputs_length: torch.Tensor,
-                       decode_session: RnntGreedyDecoding):
-    """ Rnnt Greedy Search.
-        Args:
-            hidden_states: (batch, seq_len, encoder_out_dim) 
-            inputs_length (batch)
-            decode_session: Built instance of RnntGreedyDecoding
-        return:
-            hypotheses: List[str], List of decoded text of whole batches.
-    """
-    results = []
-    for entry_id in range(hidden_states.shape[0]):
-        actual_1 = inputs_length[entry_id].item()
-        actual_hidden_s = hidden_states[entry_id:entry_id + 1, :actual_1, :]
-        results.append(decode_session.decode(actual_hidden_s))
-
-    return results
-
-
 def _log_add(a, b):
     return math.log(math.exp(a) + math.exp(b))
 
@@ -200,7 +199,7 @@ class DecodingState:
     best_beam: DecodedBeam = None
 
 
-class RnntBeamDecoding(object):
+class RnntBeamDecoding(DecodingMethod):
     """ Beam search of Rnnt Asr system, restrict token step as 1 taking advantage 
         of peaky behavior of Rnnt loss, which interestingly pretty much similar 
         to CTC.

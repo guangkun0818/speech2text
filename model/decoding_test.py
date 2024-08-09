@@ -11,9 +11,8 @@ from torch.nn.utils.rnn import pad_sequence
 from parameterized import parameterized
 
 from dataset.utils import TokenizerSetup
-from model.decoding import ctc_greedy_search, reference_decoder
-from model.decoding import rnnt_greedy_search, RnntGreedyDecoding
-from model.decoding import RnntBeamDecoding
+from model.decoding import (reference_decoder, batch_search, CtcGreedyDecoding,
+                            RnntGreedyDecoding, RnntBeamDecoding)
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
 
@@ -52,7 +51,10 @@ class TestCtcGreedySearch(unittest.TestCase):
             }
         }
         self._subword_tokenizer = TokenizerSetup(self._subword_config)
-        self._greedy_search = ctc_greedy_search
+        self._char_decode_session = CtcGreedyDecoding(
+            tokenizer=self._char_tokenizer)
+        self._subword_decode_session = CtcGreedyDecoding(
+            tokenizer=self._subword_tokenizer)
 
     # Params: (ground_truth, labels, tokenzier)
     @parameterized.expand([
@@ -71,9 +73,9 @@ class TestCtcGreedySearch(unittest.TestCase):
     def test_greedy_search_char(self, log_probs, input_length, refers):
         # Unittest of ct greedy search, char based
         glog.info(log_probs.shape)
-        hypos = self._greedy_search(log_probs=log_probs,
-                                    inputs_length=input_length,
-                                    tokenizer=self._char_tokenizer)
+        hypos = batch_search(hidden_states=log_probs,
+                             inputs_length=input_length,
+                             decode_session=self._char_decode_session)
         glog.info("Ctc decoded: {}".format(hypos))
         self.assertEqual(hypos, refers)
 
@@ -107,9 +109,9 @@ class TestCtcGreedySearch(unittest.TestCase):
         refers = ["that is", "that is"]
 
         glog.info(log_probs.shape)
-        hypos = self._greedy_search(log_probs=log_probs,
-                                    inputs_length=input_length,
-                                    tokenizer=self._subword_tokenizer)
+        hypos = batch_search(hidden_states=log_probs,
+                             inputs_length=input_length,
+                             decode_session=self._subword_decode_session)
         self.assertEqual(hypos, refers)
 
 
@@ -154,9 +156,9 @@ class TestRnntGreedyDecoding(unittest.TestCase):
     def test_rnnt_greedy_decode(self):
         hidden_states = torch.rand(2, 64, 512)
         input_lengths = torch.Tensor([128, 80]).long()
-        result = rnnt_greedy_search(hidden_states=hidden_states,
-                                    inputs_length=input_lengths,
-                                    decode_session=self._decode_session)
+        result = batch_search(hidden_states=hidden_states,
+                              inputs_length=input_lengths,
+                              decode_session=self._decode_session)
         glog.info(result)
 
 
