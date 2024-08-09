@@ -128,6 +128,7 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             },
             "data_aug_config": {
                 "use_speed_perturb": True,
+                "use_spec_aug": False,
                 "add_noise_proportion": 0.5,
                 "add_noise_config": {
                     "min_snr_db": 10,

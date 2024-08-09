@@ -16,7 +16,7 @@ from torch.utils.data import Sampler
 
 import dataset.frontend.data_augmentation as data_augmentation
 import dataset.utils as utils
-from dataset.frontend.frontend import KaldiWaveFeature, DummyFrontend
+from dataset.frontend.frontend import FeatType
 
 
 class BaseDataset(Dataset):
@@ -113,7 +113,6 @@ class AsrTrainDataset(BaseDataset):
         glog.info("Train dataset duration: {}h.".format(
             self.total_duration / 3600, ".2f"))
 
-        self._feat_type = config["feat_type"]
         self._data_aug_config = config["data_aug_config"]
         self._tokenizer = tokenizer
 
@@ -129,14 +128,8 @@ class AsrTrainDataset(BaseDataset):
         # Spec_augmentation
         self._spec_augment = data_augmentation.spec_aug
 
-        if self._feat_type == "fbank":
-            self._compute_feature = KaldiWaveFeature(**config["feat_config"])
-        elif self._feat_type == "pcm":
-            self._compute_feature = DummyFrontend(**config["feat_config"])
-        else:
-            raise ValueError(
-                "feat_type only support 'fbank' and 'pcm' right now, please check your config."
-            )
+        self._compute_feature = FeatType[config["feat_type"]].value(
+            **config["feat_config"])
 
     def __getitem__(self, index):
         """ Return:
@@ -150,7 +143,9 @@ class AsrTrainDataset(BaseDataset):
         assert "audio_filepath" in data
         assert "text" in data
 
-        pcm, framerate = torchaudio.load(data["audio_filepath"], normalize=True)
+        pcm, framerate = torchaudio.load(
+            data["audio_filepath"],
+            normalize=self._compute_feature.pcm_normalize)
 
         # Data Augmentation: Add Noise
         # Use add noise proportion control the augmentation ratio of all dataset
@@ -165,7 +160,7 @@ class AsrTrainDataset(BaseDataset):
 
         feat = self._compute_feature(pcm)  # Extract acoustic feats
 
-        if self._feat_type == "fbank" and self._data_aug_config["use_spec_aug"]:
+        if self._data_aug_config["use_spec_aug"]:
             feat = self._spec_augment(feat)  # Spec_aug
 
         label_tensor = self._tokenizer.encode(data["text"])
@@ -191,17 +186,10 @@ class AsrEvalDataset(BaseDataset):
         glog.info("Eval dataset duration: {}h.".format(
             self.total_duration / 3600, ".2f"))
 
-        self._feat_type = config["feat_type"]
         self._tokenizer = tokenizer
 
-        if self._feat_type == "fbank":
-            self._compute_feature = KaldiWaveFeature(**config["feat_config"])
-        elif self._feat_type == "pcm":
-            self._compute_feature = DummyFrontend(**config["feat_config"])
-        else:
-            raise ValueError(
-                "feat_type only support 'fbank' and 'pcm' right now, please check your config."
-            )
+        self._compute_feature = FeatType[config["feat_type"]].value(
+            **config["feat_config"])
 
     def __getitem__(self, index):
         """ Return:
@@ -215,7 +203,9 @@ class AsrEvalDataset(BaseDataset):
         assert "audio_filepath" in data
         assert "text" in data
 
-        pcm, framerate = torchaudio.load(data["audio_filepath"], normalize=True)
+        pcm, framerate = torchaudio.load(
+            data["audio_filepath"],
+            normalize=self._compute_feature.pcm_normalize)
         feat = self._compute_feature(pcm)
 
         label_tensor = self._tokenizer.encode(data["text"])
