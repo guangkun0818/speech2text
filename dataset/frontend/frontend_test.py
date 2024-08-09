@@ -10,6 +10,8 @@ import torch
 
 from dataset.frontend.frontend import KaldiWaveFeature
 from dataset.frontend.frontend import DummyFrontend
+from dataset.frontend.frontend import LhotseKaldiFeatFbank
+from dataset.frontend.frontend import FeatType
 
 
 class KaldiFbankTest(unittest.TestCase):
@@ -20,6 +22,7 @@ class KaldiFbankTest(unittest.TestCase):
         self._test_data_2 = "sample_data/data/wavs/1462-170138-0015.wav"
 
         self._config = {
+            "feat_type": "fbank",
             "feat_config": {
                 "num_mel_bins": 80,
                 "frame_length": 25,
@@ -28,7 +31,8 @@ class KaldiFbankTest(unittest.TestCase):
                 "samplerate": 16000,
             },
         }
-        self._kaldi_frontend = KaldiWaveFeature(**self._config["feat_config"])
+        self._kaldi_frontend = FeatType[self._config["feat_type"]].value(
+            **self._config["feat_config"])
 
     def test_frontend_wave_feature(self):
         # Frontend forward unittest
@@ -52,6 +56,32 @@ class KaldiFbankTest(unittest.TestCase):
         glog.info("Torchscript output :{}".format(ts_feats.shape))
         glog.info("Checkpoint output: {}".format(pt_feats.shape))
         self.assertTrue(torch.allclose(pt_feats, ts_feats))
+
+
+class TestLhotseKaldiFeatFbank(unittest.TestCase):
+    """ Unittest of LhotseKaldiFeatFbank and FeatType """
+
+    def setUp(self) -> None:
+        self._test_data_1 = "sample_data/data/wavs/251-136532-0007.wav"
+        self._test_data_2 = "sample_data/data/wavs/1462-170138-0015.wav"
+
+        self._config = {
+            "feat_type": "lhotes_fbank",
+            "feat_config": {
+                "num_mel_bins": 80,
+            },
+        }
+
+        self._frontend = FeatType[self._config["feat_type"]].value(
+            **self._config["feat_config"])
+
+    def test_frontend_wave_feature(self):
+        # Frontend forward unittest
+        pcms, _ = torchaudio.load(self._test_data_1,
+                                  normalize=self._frontend.pcm_normalize)
+        feats = self._frontend(pcms)
+        glog.info("Fbank feature: {}".format(feats.shape))
+        self.assertEqual(feats.shape[-1], self._frontend.feat_dim)
 
 
 if __name__ == "__main__":
