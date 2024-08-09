@@ -34,6 +34,8 @@ class BaseDataset(Dataset):
         """
         super(BaseDataset, self).__init__()
         self._total_duration = 0.0
+        self._min_duration = float("inf")
+        self._max_duration = -float("inf")
         self._dataset = self._make_dataset_from_json(dataset_json,
                                                      dur_min_filter,
                                                      dur_max_filter)
@@ -53,6 +55,10 @@ class BaseDataset(Dataset):
                 if dur_min_filter <= data_infos["duration"] <= dur_max_filter:
                     datamap.append(data_infos)
                     self._total_duration += data_infos["duration"]
+                    self._min_duration = min(self._min_duration,
+                                             data_infos["duration"])
+                    self._max_duration = max(self._max_duration,
+                                             data_infos["duration"])
         return datamap
 
     def _make_noiseset_from_json(self, noise_json):
@@ -61,6 +67,24 @@ class BaseDataset(Dataset):
             for line in json_f:
                 data_infos = json.loads(line)
                 self._noise_dataset.append(data_infos["noise_filepath"])
+
+    def fetch_data_k_info(self, idx, k):
+        """ Fetch data info with key and idx, for bucket sampling.
+            Args:
+                idx: int, Original dataset index
+                key: str, info key within single data entry
+            return:
+                Any.
+        """
+        return self._dataset[idx][k]
+
+    @property
+    def min_duration(self):
+        return self._min_duration
+
+    @property
+    def max_duration(self):
+        return self._max_duration
 
     @property
     def total_duration(self):
