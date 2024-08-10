@@ -1,8 +1,8 @@
-# Demo training config of Conformer + CTC
+# Demo training config of Conformer/LSTM + Rnnt
 
 task:
-  type: "CTC"
-  name: "conformer-subword-ctc"
+  type: "Rnnt"
+  name: "conformer-subword-rnnt"
   export_path: "tasks/debug"
 
 tokenizer:
@@ -66,20 +66,35 @@ encoder:
     output_dim: 256
 
 decoder:
-  model: "Projector"
+  model: "Identity"
   config:
-    input_dim: 256
-    output_dim: 128
-    dropout_p: 0.1
+    dummy: -1
+
+predictor:
+  model: "Lstm"
+  config:
+    num_symbols: 128
+    output_dim: 256
+    symbol_embedding_dim: 512
+    num_lstm_layers: 3
+    lstm_hidden_dim: 512
+    lstm_layer_norm: true
+    lstm_dropout: 0.3
+
+joiner:
+  input_dim: 256
+  output_dim: 128
+  prune_range: -1
 
 loss:
-  model: "CTC"
+  model: "Rnnt"
   config:
     blank_label: 0
     reduction: "mean"
 
 metric:
-  decode_method: "ctc_greedy_search"
+  decode_method: "rnnt_greedy_search"
+  max_token_step: 1
 
 optim_setup:
   seperate_lr:
@@ -87,6 +102,8 @@ optim_setup:
     config:
       encoder_lr: 0.001
       decoder_lr: 0.001
+      predictor_lr: 0.001
+      joiner_lr: 0.001
   optimizer:
     type: "AdamW"
     config:
@@ -105,7 +122,7 @@ trainer:
   devices: 1 
   strategy: "ddp" 
   precision: "32-true"
-  max_epochs: 2000
+  max_epochs: 20000
   val_check_interval: 1.0
   accumulate_grad_batches: 1
   gradient_clip_val: 5.0

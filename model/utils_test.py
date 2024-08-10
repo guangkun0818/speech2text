@@ -15,11 +15,14 @@ from model.joiner.joiner import Joiner, JoinerConfig
 from model.utils import AsrMetric, AsrMetricConfig
 
 # (B, T, D) = (2, 8, 5)
-_LOGITS = torch.Tensor([[0.6, 0.2, 0.1, 0.1, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0],
-                        [1.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0,
+_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 1.0,
                          0.0]]).unsqueeze(0).repeat(2, 1, 1)
 
 
@@ -29,7 +32,7 @@ class TestCtcMetric(unittest.TestCase):
     def setUp(self) -> None:
         super(TestCtcMetric, self).__init__()
         # ground_truth_label = ("aabb", "abc")
-        self._ground_truth = torch.Tensor([[1, 1, 2, 2], [1, 2, 3, 0]])
+        self._ground_truth = torch.Tensor([[2, 2, 3, 3], [2, 3, 4, 0]])
         # Set up char tokenizer
         self._char_config = {
             "type": "char",

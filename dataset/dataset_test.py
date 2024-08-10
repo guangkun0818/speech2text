@@ -31,6 +31,7 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
             "train_data": "sample_data/asr_train_data.json",
             "eval_data": "sample_data/asr_eval_data.json",
             "noise_data": "sample_data/noise_data.json",
+            "apply_segment": False,
             "dur_min_filter": 0.0,
             "dur_max_filter": 20.0,
             "batch_size": 256,
@@ -45,11 +46,17 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
             "data_aug_config": {
                 "use_speed_perturb": True,
                 "use_spec_aug": True,
+                "use_add_noise": True,
                 "add_noise_proportion": 0.5,
                 "add_noise_config": {
                     "min_snr_db": 10,
                     "max_snr_db": 50,
                     "max_gain_db": 300.0,
+                },
+                "use_mix_feats": True,
+                "mix_feats_proportion": 0.5,
+                "mix_feats_config": {
+                    "snrs": [10, 20]
                 }
             }
         }
@@ -60,8 +67,14 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
         self._eval_dataset = AsrEvalDataset(self._dataset_config,
                                             self._tokenzier)
 
-    # Batch_size from 1 - 10
-    @parameterized.expand([(i,) for i in range(1, 11)])
+    def test_dataset_info(self):
+        glog.info("Total duration: {}".format(
+            self._train_dataset.total_duration))
+        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
+        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+
+    # Batch_size from 40/101/341
+    @parameterized.expand([(40,), (101,), (341,)])
     def test_train_dataset(self, batch_size):
         glog.info("Unittest of train_dataset, fbank and subword specified.")
         count = 0
@@ -76,8 +89,8 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
             glog.info("label_length: {}".format(batch["label_length"]))
             glog.info(count)
 
-    # Batch_size from 1 - 10
-    @parameterized.expand([(i,) for i in range(1, 11)])
+    # Batch_size from 40/101/341
+    @parameterized.expand([(40,), (101,), (341,)])
     def test_eval_dataset(self, batch_size):
         glog.info("Unittest of eval_dataset, fbank and subword specified.")
         count = 0
@@ -113,6 +126,7 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             "train_data": "sample_data/asr_train_data.json",
             "eval_data": "sample_data/asr_eval_data.json",
             "noise_data": "sample_data/noise_data.json",
+            "apply_segment": False,
             "dur_min_filter": 0.0,
             "dur_max_filter": 20.0,
             "batch_size": 256,
@@ -122,11 +136,18 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             },
             "data_aug_config": {
                 "use_speed_perturb": True,
+                "use_spec_aug": False,
+                "use_add_noise": True,
                 "add_noise_proportion": 0.5,
                 "add_noise_config": {
                     "min_snr_db": 10,
                     "max_snr_db": 50,
                     "max_gain_db": 300.0,
+                },
+                "use_mix_feats": False,
+                "mix_feats_proportion": 0.5,
+                "mix_feats_config": {
+                    "snrs": [10, 20]
                 }
             }
         }
@@ -137,8 +158,14 @@ class TestAsrPcmCharDataset(unittest.TestCase):
         self._eval_dataset = AsrEvalDataset(self._dataset_config,
                                             self._tokenzier)
 
-    # Batch_size from 1 - 10
-    @parameterized.expand([(i,) for i in range(1, 11)])
+    def test_dataset_info(self):
+        glog.info("Total duration: {}".format(
+            self._train_dataset.total_duration))
+        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
+        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+
+    # Batch_size from 40/101/341
+    @parameterized.expand([(40,), (101,), (341,)])
     def test_train_dataset(self, batch_size):
         glog.info("Unittest of train_dataset, pcm and char specified.")
         count = 0
@@ -153,8 +180,8 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             glog.info("label_length: {}".format(batch["label_length"]))
             glog.info(count)
 
-    # Batch_size from 1 - 10
-    @parameterized.expand([(i,) for i in range(1, 11)])
+    # Batch_size from 40/101/341
+    @parameterized.expand([(40,), (101,), (341,)])
     def test_eval_dataset(self, batch_size):
         glog.info("Unittest of eval_dataset, pcm and char specified.")
         count = 0

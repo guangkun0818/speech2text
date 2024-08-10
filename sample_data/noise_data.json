@@ -1,10 +1,10 @@
-{"noise_filepath": "sample_data/data/noises/traffic_11.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_13.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_15.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_25.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_37.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_39.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_49.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_56.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_58.wav"}
-{"noise_filepath": "sample_data/data/noises/traffic_69.wav"}
+{"noise_filepath": "sample_data/data/noises/traffic_11.wav", "duration": 28.0}
+{"noise_filepath": "sample_data/data/noises/traffic_13.wav", "duration": 29.94}
+{"noise_filepath": "sample_data/data/noises/traffic_15.wav", "duration": 29.94}
+{"noise_filepath": "sample_data/data/noises/traffic_25.wav", "duration": 28.51}
+{"noise_filepath": "sample_data/data/noises/traffic_37.wav", "duration": 30.38}
+{"noise_filepath": "sample_data/data/noises/traffic_39.wav", "duration": 30.38}
+{"noise_filepath": "sample_data/data/noises/traffic_49.wav", "duration": 30.94}
+{"noise_filepath": "sample_data/data/noises/traffic_56.wav", "duration": 30.00}
+{"noise_filepath": "sample_data/data/noises/traffic_58.wav", "duration": 30.20}
+{"noise_filepath": "sample_data/data/noises/traffic_69.wav", "duration": 30.14}

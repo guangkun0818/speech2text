@@ -23,7 +23,7 @@ class Loss(nn.Module):
             self.loss = CtcLoss(config=CtcLossConfig(**config["config"]))
         elif config["model"] == "Rnnt":
             self.loss = RnntLoss(config=RnntLossConfig(**config["config"]))
-        elif config["model"] == "Pruned_Runt":
+        elif config["model"] == "Pruned_Rnnt":
             self.loss = PrunedRnntLoss(config=PrunedRnntLossConfig(
                 **config["config"]))
 
@@ -35,13 +35,12 @@ class Loss(nn.Module):
         assert "targets_length" in batch
         # This shitty desgin is freaking sacifice of consistency API of
         # all different losses.
-        if "boundary" in batch.keys() and "ranges" in batch.keys():
-            if batch["boundary"] is not None and batch["ranges"] is not None:
-                # Indicating PrunedntLoss applied
-                loss = self.loss(batch["log_probs"], batch["targets"],
-                                 batch["inputs_length"],
-                                 batch["targets_length"], batch["boundary"],
-                                 batch["ranges"])
+        if "boundary" in batch.keys() and "ranges" in batch.keys(
+        ) and batch["boundary"] is not None and batch["ranges"] is not None:
+            # Indicating PrunedntLoss applied
+            loss = self.loss(batch["log_probs"], batch["targets"],
+                             batch["inputs_length"], batch["targets_length"],
+                             batch["boundary"], batch["ranges"])
         else:
             loss = self.loss(batch["log_probs"], batch["targets"],
                              batch["inputs_length"], batch["targets_length"])

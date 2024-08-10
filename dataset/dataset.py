@@ -16,7 +16,7 @@ from torch.utils.data import Sampler
 
 import dataset.frontend.data_augmentation as data_augmentation
 import dataset.utils as utils
-from dataset.frontend.frontend import KaldiWaveFeature, DummyFrontend
+from dataset.frontend.frontend import FeatType
 
 
 class BaseDataset(Dataset):
@@ -34,6 +34,8 @@ class BaseDataset(Dataset):
         """
         super(BaseDataset, self).__init__()
         self._total_duration = 0.0
+        self._min_duration = float("inf")
+        self._max_duration = -float("inf")
         self._dataset = self._make_dataset_from_json(dataset_json,
                                                      dur_min_filter,
                                                      dur_max_filter)
@@ -53,6 +55,10 @@ class BaseDataset(Dataset):
                 if dur_min_filter <= data_infos["duration"] <= dur_max_filter:
                     datamap.append(data_infos)
                     self._total_duration += data_infos["duration"]
+                    self._min_duration = min(self._min_duration,
+                                             data_infos["duration"])
+                    self._max_duration = max(self._max_duration,
+                                             data_infos["duration"])
         return datamap
 
     def _make_noiseset_from_json(self, noise_json):
@@ -60,7 +66,31 @@ class BaseDataset(Dataset):
         with open(noise_json, 'r') as json_f:
             for line in json_f:
                 data_infos = json.loads(line)
-                self._noise_dataset.append(data_infos["noise_filepath"])
+                self._noise_dataset.append(data_infos)
+
+    def fetch_data_k_info(self, idx, k):
+        """ Fetch data info with key and idx, for bucket sampling.
+            Args:
+                idx: int, Original dataset index
+                key: str, info key within single data entry
+            return:
+                Any.
+        """
+        return self._dataset[idx][k]
+
+    def compute_offset(self, start: float, end: float, frame_rate=16000):
+        # Compute audio segment offset.
+        frame_offset = int(start * frame_rate)
+        num_frames = int(end * frame_rate) - frame_offset
+        return frame_offset, num_frames
+
+    @property
+    def min_duration(self):
+        return self._min_duration
+
+    @property
+    def max_duration(self):
+        return self._max_duration
 
     @property
     def total_duration(self):
@@ -89,30 +119,23 @@ class AsrTrainDataset(BaseDataset):
         glog.info("Train dataset duration: {}h.".format(
             self.total_duration / 3600, ".2f"))
 
-        self._feat_type = config["feat_type"]
-        self._data_aug_config = config["data_aug_config"]
+        self._dataset_config = config
         self._tokenizer = tokenizer
+        self._compute_feature = FeatType[config["feat_type"]].value(
+            **config["feat_config"])
 
         # Add Noise data_augmentation
+        self._data_aug_config = config["data_aug_config"]
         self._add_noise_proportion = self._data_aug_config[
             "add_noise_proportion"]
-        self._add_noise_config = self._data_aug_config["add_noise_config"]
-        self._add_noise = data_augmentation.add_noise
-
-        # Speed_perturb augmentation
-        self._speed_perturb = data_augmentation.speed_perturb
-
-        # Spec_augmentation
-        self._spec_augment = data_augmentation.spec_aug
-
-        if self._feat_type == "fbank":
-            self._compute_feature = KaldiWaveFeature(**config["feat_config"])
-        elif self._feat_type == "pcm":
-            self._compute_feature = DummyFrontend(**config["feat_config"])
-        else:
-            raise ValueError(
-                "feat_type only support 'fbank' and 'pcm' right now, please check your config."
-            )
+        self._add_noise = data_augmentation.AddNoise(
+            **self._data_aug_config["add_noise_config"])
+        self._speed_perturb = data_augmentation.SpeedPerturb()
+        self._spec_augment = data_augmentation.SpecAugment()
+        self._mix_feats_proportion = self._data_aug_config[
+            "mix_feats_proportion"]
+        self._mix_feats = data_augmentation.MixFeats(
+            **self._data_aug_config["mix_feats_config"])
 
     def __getitem__(self, index):
         """ Return:
@@ -126,23 +149,53 @@ class AsrTrainDataset(BaseDataset):
         assert "audio_filepath" in data
         assert "text" in data
 
-        pcm, framerate = torchaudio.load(data["audio_filepath"], normalize=True)
+        # Apply segmentation on origin audio, quite slow not recommend.
+
+        frame_offset, num_frames = self.compute_offset(
+            start=data["segment"][0], end=data["segment"]
+            [1]) if self._dataset_config["apply_segment"] else 0, -1
+
+        pcm, framerate = torchaudio.load(
+            data["audio_filepath"],
+            frame_offset=frame_offset,
+            num_frames=num_frames,
+            normalize=self._compute_feature.pcm_normalize)
 
         # Data Augmentation: Add Noise
-        # Use add noise proportion control the augmentation ratio of all dataset
-        need_noisify_aug = random.uniform(0, 1) < self._add_noise_proportion
-        if need_noisify_aug:
-            noise_pcm, _ = torchaudio.load(random.choice(self._noise_dataset),
-                                           normalize=True)
-            pcm = self._add_noise(pcm, noise_pcm, **self._add_noise_config)
+        if self._data_aug_config["use_add_noise"]:
+            # Use add noise proportion control the augmentation ratio of all dataset
+            need_noisify_aug = random.uniform(0, 1) < self._add_noise_proportion
+            if need_noisify_aug:
+                noise_pcm, _ = torchaudio.load(
+                    random.choice(self._noise_dataset)["noise_filepath"],
+                    normalize=self._compute_feature.pcm_normalize)
+                pcm = self._add_noise.process(pcm, noise_pcm)
 
         if self._data_aug_config["use_speed_perturb"]:
-            pcm = self._speed_perturb(pcm)  # Speed_perturb aug
+            pcm = self._speed_perturb.process(pcm)  # Speed_perturb aug
 
         feat = self._compute_feature(pcm)  # Extract acoustic feats
 
-        if self._feat_type == "fbank" and self._data_aug_config["use_spec_aug"]:
-            feat = self._spec_augment(feat)  # Spec_aug
+        if self._data_aug_config["use_mix_feats"]:
+            need_mix_feats = random.uniform(0, 1) < self._mix_feats_proportion
+            if need_mix_feats:
+                noise_entry = random.choice(self._noise_dataset)
+                # Avoid waste on compute feats on unused noise_pcm.
+                start_t = random.uniform(
+                    0, max(0, noise_entry["duration"] - data["duration"]))
+                end_t = min(start_t + data["duration"], noise_entry["duration"])
+                frame_offset, num_frames = self.compute_offset(start_t, end_t)
+
+                noise_pcm, _ = torchaudio.load(
+                    noise_entry["noise_filepath"],
+                    frame_offset=frame_offset,
+                    num_frames=num_frames,
+                    normalize=self._compute_feature.pcm_normalize)
+                noise_feats = self._compute_feature(noise_pcm)
+                feat = self._mix_feats.process(src=feat, noise=noise_feats)
+
+        if self._data_aug_config["use_spec_aug"]:
+            feat = self._spec_augment.process(feat)  # Spec_aug
 
         label_tensor = self._tokenizer.encode(data["text"])
 
@@ -167,17 +220,10 @@ class AsrEvalDataset(BaseDataset):
         glog.info("Eval dataset duration: {}h.".format(
             self.total_duration / 3600, ".2f"))
 
-        self._feat_type = config["feat_type"]
+        self._dataset_config = config
         self._tokenizer = tokenizer
-
-        if self._feat_type == "fbank":
-            self._compute_feature = KaldiWaveFeature(**config["feat_config"])
-        elif self._feat_type == "pcm":
-            self._compute_feature = DummyFrontend(**config["feat_config"])
-        else:
-            raise ValueError(
-                "feat_type only support 'fbank' and 'pcm' right now, please check your config."
-            )
+        self._compute_feature = FeatType[config["feat_type"]].value(
+            **config["feat_config"])
 
     def __getitem__(self, index):
         """ Return:
@@ -191,7 +237,17 @@ class AsrEvalDataset(BaseDataset):
         assert "audio_filepath" in data
         assert "text" in data
 
-        pcm, framerate = torchaudio.load(data["audio_filepath"], normalize=True)
+        # Apply segmentation on origin audio, quite slow not recommend.
+        frame_offset, num_frames = self.compute_offset(
+            start=data["segment"][0], end=data["segment"]
+            [1]) if self._dataset_config["apply_segment"] else 0, -1
+
+        pcm, framerate = torchaudio.load(
+            data["audio_filepath"],
+            frame_offset=frame_offset,
+            num_frames=num_frames,
+            normalize=self._compute_feature.pcm_normalize)
+
         feat = self._compute_feature(pcm)
 
         label_tensor = self._tokenizer.encode(data["text"])

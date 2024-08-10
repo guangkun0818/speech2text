@@ -14,8 +14,8 @@ from dataset.utils import Tokenizer
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner
 
-from model.decoding import ctc_greedy_search, reference_decoder
-from model.decoding import rnnt_greedy_search, RnntGreedyDecoding
+from model.decoding import (reference_decoder, batch_search, RnntGreedyDecoding,
+                            CtcGreedyDecoding)
 
 
 def _levenshtein(a: List, b: List) -> int:
@@ -108,14 +108,13 @@ class AsrMetric(object):
         self._tokenizer = tokenizer
         # TODO: future will support BeamSearch
         if config.decode_method == "ctc_greedy_search":
-            self.ctc_decoder = ctc_greedy_search
+            self._decode_sess = CtcGreedyDecoding(tokenizer=self._tokenizer)
         elif config.decode_method == "rnnt_greedy_search":
-            self._rnnt_decode_session = RnntGreedyDecoding(
+            self._decode_sess = RnntGreedyDecoding(
                 tokenizer=self._tokenizer,
                 predictor=predictor,
                 joiner=joiner,
                 max_token_step=config.max_token_step)
-            self.rnnt_decoder = rnnt_greedy_search
         else:
             NotImplementedError
 
@@ -127,11 +126,7 @@ class AsrMetric(object):
                 ground_truth: Ground_truth of labels, tokenized.
         """
         references = reference_decoder(ground_truth, self._tokenizer)
-        if hasattr(self, "ctc_decoder"):
-            hypotheses = self.ctc_decoder(hidden_states, inputs_length,
-                                          self._tokenizer)
-        elif hasattr(self, "rnnt_decoder"):
-            hypotheses = self.rnnt_decoder(hidden_states, inputs_length,
-                                           self._rnnt_decode_session)
+        hypotheses = batch_search(hidden_states, inputs_length,
+                                  self._decode_sess)
         wer = word_error_rate(hypotheses=hypotheses, references=references)
         return wer

@@ -4,6 +4,7 @@
 """ Joiner of Rnnt """
 
 import dataclasses
+import onnx
 import torch
 import k2
 import torch.nn as nn
@@ -19,6 +20,9 @@ class JoinerConfig:
     inner_dim: int = 256  # Inner dim of last projection layer
     activation: str = "relu"  # activation func, choose from ("relu", "tanh")
     prune_range: int = 5  # specify as -1 if pruned rnnt loss not applied
+    lm_scale: float = 0.0  # lm_scale applied in simple_loss of pruned_rnnt
+    am_scale: float = 0.0  # am_scale applied in simple_loss of pruned_rnnt
+    use_out_project: bool = True  # If apply last output projection, if false, params saved
 
 
 class Joiner(nn.Module):
@@ -33,7 +37,9 @@ class Joiner(nn.Module):
         self._output_dim = config.output_dim
         self._inner_dim = config.inner_dim
 
-        self._linear = nn.Linear(self._input_dim, self._output_dim, bias=True)
+        self._enc_proj = nn.Linear(self._input_dim, self._output_dim, bias=True)
+        self._pre_proj = nn.Linear(self._input_dim, self._output_dim, bias=True)
+
         if config.activation == "relu":
             self._activation = nn.ReLU()
         elif config.activation == "tanh":
@@ -41,14 +47,20 @@ class Joiner(nn.Module):
         else:
             raise ValueError(f"Unsupported activation {config.activation}")
 
-        self._out_projection = nn.Sequential(
-            nn.Linear(self._output_dim, self._inner_dim),
-            nn.Linear(self._inner_dim, self._output_dim))
+        self._use_out_project = config.use_out_project
+        if self._use_out_project:
+            self._out_projection = nn.Sequential(
+                nn.Linear(self._output_dim, self._inner_dim),
+                nn.Linear(self._inner_dim, self._output_dim))
+        else:
+            self._out_projection = nn.Identity()  # Placeholder
 
         self._log_softmax = nn.LogSoftmax(dim=-1)
 
         self._blank_token = 0  # 0 is strictly set for both Ctc and Rnnt.
         self._prune_range = config.prune_range
+        self._lm_scale = config.lm_scale
+        self._am_scale = config.am_scale
 
     @property
     def prune_range(self) -> int:
@@ -78,6 +90,7 @@ class Joiner(nn.Module):
                                device=encoder_out.device)
         boundary[:, 2] = target_lengths
         boundary[:, 3] = encoder_out_lengths
+        assert len(target.shape) == 2  # (B, U)
         assert predict_out.shape[-1] >= self._output_dim and predict_out.shape[
             -1] >= self._output_dim, "If pruned rnnt loss applied, output dim of encoder and \
                 predictor should be mandatorily larger than num of tokens. Please check your config"
@@ -88,8 +101,8 @@ class Joiner(nn.Module):
             am=encoder_out.to(dtype=torch.float32),
             symbols=target,
             termination_symbol=self.blank_token,
-            lm_only_scale=0.0,
-            am_only_scale=0.0,
+            lm_only_scale=self._lm_scale,
+            am_only_scale=self._am_scale,
             boundary=boundary,
             reduction="mean",
             return_grad=True,
@@ -130,8 +143,9 @@ class Joiner(nn.Module):
                 target: (B, U) or Empty tensor as default, this will be 
                         utilized when prune rnnt loss applied.
         """
-        encoder_out = self._linear(encoder_out)
-        predict_out = self._linear(predict_out)
+        # Project both encoder_out and predictor_out into vocab_size
+        encoder_out = self._enc_proj(encoder_out)
+        predict_out = self._pre_proj(predict_out)
 
         if self.prune_range > 0:
             assert target.shape[0] == target_lengths.shape[0]
@@ -170,15 +184,15 @@ class Joiner(nn.Module):
     @torch.inference_mode(mode=True)
     def streaming_step(self, encoder_out: torch.Tensor,
                        predictor_out: torch.Tensor):
-        # Streaming inference step, accept only 1 frame from encoder and 1 token from
+        # Streaming inference step, accept only 1 frame from encoder and beam_size token from
         # predictor to predict next. strictly follow Auto-aggressively strategy
-        # encoder_out: (1, 1, D), predictor_out: (1, 1, D).
+        # encoder_out: (1, 1, D), predictor_out: (beam_size, 1, D).
         assert encoder_out.shape[0] == 1 and encoder_out.shape[1] == 1
-        assert predictor_out.shape[0] == 1 and predictor_out.shape[1] == 1
+        assert predictor_out.shape[1] == 1
 
         # Project both with configured out_dim in to vocab_size
-        encoder_out = self._linear(encoder_out)
-        predictor_out = self._linear(predictor_out)
+        encoder_out = self._enc_proj(encoder_out)
+        predictor_out = self._pre_proj(predictor_out)
 
         encoder_out = encoder_out.unsqueeze(2).contiguous()
         predictor_out = predictor_out.unsqueeze(1).contiguous()
@@ -188,5 +202,74 @@ class Joiner(nn.Module):
         output = self._out_projection(activation_out)
 
         output = self._log_softmax(output)  #(1, 1, 1, D)
-        output = output.squeeze(0).squeeze(0)  #（1,D)
+        output = output.squeeze(1).squeeze(1)  #（1, D)
         return output  # Return next token (1, D)
+
+    @torch.jit.export
+    @torch.inference_mode(mode=True)
+    def onnx_streaming_step(self, encoder_out: torch.Tensor,
+                            predictor_out: torch.Tensor):
+        # Wrapped forward for Onnx export
+        encoder_out = self._enc_proj(encoder_out)  # (N, proj_enc_out_dim)
+        predictor_out = self._pre_proj(predictor_out)  # (N, proj_pre_out_dim)
+
+        joint_encodings = encoder_out + predictor_out
+        activation_out = self._activation(joint_encodings)
+        output = self._out_projection(activation_out)
+
+        return output  # Return next token (1, D)
+
+    def onnx_export(self, export_filename):
+        """ Export Onnx model support deploy with sherpa-onnx """
+        self.train(False)
+        self._restore_forward = self.forward  # Restore forward when export done.
+        self.forward = self.onnx_streaming_step
+        ts_joiner = torch.jit.script(self)
+
+        input_dim = self._input_dim
+
+        enc_out = torch.rand(11, input_dim, dtype=torch.float32)
+        pre_out = torch.rand(11, input_dim, dtype=torch.float32)
+
+        torch.onnx.export(
+            ts_joiner,
+            (enc_out, pre_out),
+            export_filename,
+            verbose=False,
+            opset_version=13,
+            input_names=[
+                "encoder_out",
+                "decoder_out",
+            ],
+            output_names=["logit"],
+            dynamic_axes={
+                "encoder_out": {
+                    0: "N"
+                },
+                "decoder_out": {
+                    0: "N"
+                },
+                "logit": {
+                    0: "N"
+                },
+            },
+        )
+
+        meta_data = {
+            "joiner_dim": str(input_dim),
+        }
+        self._add_meta_data(filename=export_filename, meta_data=meta_data)
+        self.forward = self._restore_forward  # Restore forward method
+
+    def _add_meta_data(self, filename, meta_data):
+        """ Add meta data to an ONNX model. It is changed in-place.
+            Args: 
+                filename: Filename of the ONNX model to be changed.
+                meta_data: Key-value pairs.
+        """
+        model = onnx.load(filename)
+        for key, value in meta_data.items():
+            meta = model.metadata_props.add()
+            meta.key = key
+            meta.value = value
+        onnx.save(model, filename)
