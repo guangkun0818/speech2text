@@ -7,15 +7,18 @@ import abc
 import copy
 import glog
 import torch
+import torch.distributed as dist
 import torch.nn.functional as F
 import pytorch_lightning as pl
 
 from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from torch.distributed.fsdp.wrap import wrap
 
 from dataset.utils import TokenizerSetup
-from dataset.frontend.frontend import KaldiWaveFeature, DummyFrontend
+from dataset.frontend.frontend import FeatType
 from dataset.dataset import AsrEvalDataset, AsrTrainDataset, asr_collate_fn
+from dataset.sampler import DynamicBucketBatchSampler
 from model.layer.global_cmvn import GlobalCmvnLayer
 from model.encoder.encoder import Encoder
 from model.decoder.decoder import Decoder
@@ -63,12 +66,8 @@ class BaseRnntTask(pl.LightningModule):
         if config["feat_type"] == "fbank":
             # Set dither as 0.0 when output frontend
             config["feat_config"]["dither"] = 0.0
-            return KaldiWaveFeature(**config["feat_config"])
-        elif config["feat_type"] == "pcm":
-            return DummyFrontend(**config["feat_config"])
-        else:
-            raise ValueError(
-                "Only 'fbank' and 'pcm' feat type supported currently.")
+
+        return FeatType[config["feat_type"]].value(**config["feat_config"])
 
     def non_streaming_inference(self, feats):
         ...
@@ -80,18 +79,40 @@ class BaseRnntTask(pl.LightningModule):
         """ Set up train dataloader. """
 
         dataset = AsrTrainDataset(self._dataset_config, self._tokenizer)
-        dataloader = DataLoader(dataset=dataset,
-                                shuffle=True,
-                                collate_fn=asr_collate_fn,
-                                batch_size=self._dataset_config["batch_size"],
-                                num_workers=4)
+        sampler = DistributedSampler(dataset,
+                                     num_replicas=dist.get_world_size(),
+                                     rank=dist.get_rank(),
+                                     shuffle=True,
+                                     drop_last=False)
+        if self._dataset_config["use_bucket_sampler"]:
+            batch_sampler = DynamicBucketBatchSampler(
+                sampler=sampler,
+                dataset=dataset,
+                **self._dataset_config["bucket_sampler_config"])
+            dataloader = DataLoader(dataset=dataset,
+                                    collate_fn=asr_collate_fn,
+                                    batch_sampler=batch_sampler,
+                                    num_workers=4)
+        else:
+            dataloader = DataLoader(
+                dataset=dataset,
+                sampler=sampler,
+                collate_fn=asr_collate_fn,
+                batch_size=self._dataset_config["batch_size"],
+                num_workers=4)
         return dataloader
 
     def val_dataloader(self):
         """ Set up eval dataloader. """
 
         dataset = AsrEvalDataset(self._dataset_config, self._tokenizer)
+        sampler = DistributedSampler(dataset,
+                                     num_replicas=dist.get_world_size(),
+                                     rank=dist.get_rank(),
+                                     shuffle=False,
+                                     drop_last=False)
         dataloader = DataLoader(dataset=dataset,
+                                sampler=sampler,
                                 collate_fn=asr_collate_fn,
                                 batch_size=self._dataset_config["batch_size"],
                                 num_workers=4)
