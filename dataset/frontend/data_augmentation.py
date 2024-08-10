@@ -56,6 +56,68 @@ class AddNoise(object):
         return auged_pcm
 
 
+class MixFeats(object):
+    """ Mix Audio feats with noise feats based on SNR setting, borrow the ideas
+        from icefall.
+        
+        Args:
+            src: src feats to be mixed. (T, D) 
+            noise: noise feats to mix. (T, D) 
+            snrs: Range bewteen min_snr and max_snr
+        return
+            mixed_feats
+    """
+
+    def __init__(self, snrs=(10, 20)) -> None:
+        self._snrs = snrs
+
+    @staticmethod
+    def compute_energy(feats: torch.Tensor) -> float:
+        return float(torch.sum(torch.exp(feats)))
+
+    @staticmethod
+    def compute_gain(src_energy: float, noise_energy: float, snr: float):
+        gain = 1.0
+        if src_energy > 0.0:
+            # Compute the added signal energy before it was padded
+            added_feats_energy = noise_energy
+            if added_feats_energy > 0.0:
+                target_energy = src_energy * (10.0**(-snr / 10))
+                gain = target_energy / added_feats_energy
+        return gain
+
+    @staticmethod
+    def mix(features_a: torch.Tensor, features_b: torch.Tensor,
+            energy_scaling_factor_b: float) -> torch.Tensor:
+        return torch.log(
+            torch.clip(
+                torch.exp(features_a) +
+                energy_scaling_factor_b * torch.exp(features_b),
+                # protection against 1og(0); max with EPSILON is adequate since these are energies (always >= 0)
+                min=1e-10,  # EPSILON = 1e-10
+            ))
+
+    def process(self, src: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+
+        src_energy = self.compute_energy(feats=src)
+        noise_energy = self.compute_energy(feats=noise)
+        snr = random.uniform(self._snrs[0], self._snrs[-1])
+
+        gain = self.compute_gain(src_energy, noise_energy, snr)
+
+        # Pad on noise_feats if it short than src_feats, same as add_noise
+        if src.shape[0] > noise.shape[0]:
+            noise = noise.repeat(
+                torch.div(src.shape[0], noise.shape[0], rounding_mode="floor") +
+                1, 1)
+
+        # Random pick start and end timestamp of noise pem.
+        start = random.randint(0, noise.shape[0] - src.shape[0])
+        end = start + src.shape[0]
+        auged_feats = self.mix(src, noise[start:end, :], gain)
+        return auged_feats
+
+
 class SpeedPerturb(object):
     """ Apply speed perturb to the data.
         Inplace operation.
