@@ -52,6 +52,11 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
                     "min_snr_db": 10,
                     "max_snr_db": 50,
                     "max_gain_db": 300.0,
+                },
+                "use_mix_feats": True,
+                "mix_feats_proportion": 0.5,
+                "mix_feats_config": {
+                    "snrs": [10, 20]
                 }
             }
         }
@@ -138,6 +143,11 @@ class TestAsrPcmCharDataset(unittest.TestCase):
                     "min_snr_db": 10,
                     "max_snr_db": 50,
                     "max_gain_db": 300.0,
+                },
+                "use_mix_feats": False,
+                "mix_feats_proportion": 0.5,
+                "mix_feats_config": {
+                    "snrs": [10, 20]
                 }
             }
         }

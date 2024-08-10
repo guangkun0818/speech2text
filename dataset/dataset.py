@@ -78,6 +78,12 @@ class BaseDataset(Dataset):
         """
         return self._dataset[idx][k]
 
+    def compute_offset(self, start: float, end: float, frame_rate=16000):
+        # Compute audio segment offset.
+        frame_offset = int(start * frame_rate)
+        num_frames = int(end * frame_rate) - frame_offset
+        return frame_offset, num_frames
+
     @property
     def min_duration(self):
         return self._min_duration
@@ -126,6 +132,10 @@ class AsrTrainDataset(BaseDataset):
             **self._data_aug_config["add_noise_config"])
         self._speed_perturb = data_augmentation.SpeedPerturb()
         self._spec_augment = data_augmentation.SpecAugment()
+        self._mix_feats_proportion = self._data_aug_config[
+            "mix_feats_proportion"]
+        self._mix_feats = data_augmentation.MixFeats(
+            **self._data_aug_config["mix_feats_config"])
 
     def __getitem__(self, index):
         """ Return:
@@ -140,12 +150,10 @@ class AsrTrainDataset(BaseDataset):
         assert "text" in data
 
         # Apply segmentation on origin audio, quite slow not recommend.
-        if self._dataset_config["apply_segment"]:
-            frame_offset = int(data["segment"][0] * 16000)
-            num_frames = int(data["segment"][1] * 16000) - frame_offset
-        else:
-            frame_offset = 0
-            num_frames = -1
+
+        frame_offset, num_frames = self.compute_offset(
+            start=data["segment"][0], end=data["segment"]
+            [1]) if self._dataset_config["apply_segment"] else 0, -1
 
         pcm, framerate = torchaudio.load(
             data["audio_filepath"],
@@ -158,15 +166,33 @@ class AsrTrainDataset(BaseDataset):
             # Use add noise proportion control the augmentation ratio of all dataset
             need_noisify_aug = random.uniform(0, 1) < self._add_noise_proportion
             if need_noisify_aug:
-                noise_pcm, _ = torchaudio.load(random.choice(
-                    self._noise_dataset)["noise_filepath"],
-                                               normalize=True)
+                noise_pcm, _ = torchaudio.load(
+                    random.choice(self._noise_dataset)["noise_filepath"],
+                    normalize=self._compute_feature.pcm_normalize)
                 pcm = self._add_noise.process(pcm, noise_pcm)
 
         if self._data_aug_config["use_speed_perturb"]:
             pcm = self._speed_perturb.process(pcm)  # Speed_perturb aug
 
         feat = self._compute_feature(pcm)  # Extract acoustic feats
+
+        if self._data_aug_config["use_mix_feats"]:
+            need_mix_feats = random.uniform(0, 1) < self._mix_feats_proportion
+            if need_mix_feats:
+                noise_entry = random.choice(self._noise_dataset)
+                # Avoid waste on compute feats on unused noise_pcm.
+                start_t = random.uniform(
+                    0, max(0, noise_entry["duration"] - data["duration"]))
+                end_t = min(start_t + data["duration"], noise_entry["duration"])
+                frame_offset, num_frames = self.compute_offset(start_t, end_t)
+
+                noise_pcm, _ = torchaudio.load(
+                    noise_entry["noise_filepath"],
+                    frame_offset=frame_offset,
+                    num_frames=num_frames,
+                    normalize=self._compute_feature.pcm_normalize)
+                noise_feats = self._compute_feature(noise_pcm)
+                feat = self._mix_feats.process(src=feat, noise=noise_feats)
 
         if self._data_aug_config["use_spec_aug"]:
             feat = self._spec_augment.process(feat)  # Spec_aug
@@ -212,12 +238,9 @@ class AsrEvalDataset(BaseDataset):
         assert "text" in data
 
         # Apply segmentation on origin audio, quite slow not recommend.
-        if self._dataset_config["apply_segment"]:
-            frame_offset = int(data["segment"][0] * 16000)
-            num_frames = int(data["segment"][1] * 16000) - frame_offset
-        else:
-            frame_offset = 0
-            num_frames = -1
+        frame_offset, num_frames = self.compute_offset(
+            start=data["segment"][0], end=data["segment"]
+            [1]) if self._dataset_config["apply_segment"] else 0, -1
 
         pcm, framerate = torchaudio.load(
             data["audio_filepath"],
