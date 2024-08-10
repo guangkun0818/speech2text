@@ -30,6 +30,12 @@ class AddNoise(object):
 
     def process(self, pcm: torch.Tensor,
                 noise_pcm: torch.Tensor) -> torch.Tensor:
+        # Add noise on torch.float tensor
+        if pcm.dtype != torch.float:
+            pcm = pcm.float()
+        if noise_pcm.dtype != torch.float:
+            noise_pcm = pcm.float()
+
         snr_db = random.uniform(self._min_snr_db, self._max_snr_db)
         data_rms = self.rms_db(pcm)
         noise_rms = self.rms_db(noise_pcm)
