@@ -16,9 +16,16 @@ dataset:
   train_data: "sample_data/asr_train_data.json"
   eval_data: "sample_data/asr_eval_data.json"
   noise_data: "sample_data/noise_data.json"
+  apply_segment: false
   dur_min_filter: 0.1
   dur_max_filter: 60.0
   batch_size: 16
+  use_bucket_sampler: true
+  bucket_sampler_config:
+    num_bucket: 30
+    key: "duration"
+    min_batch_size: 16
+    volume_threshold: 300.0
   
   feat_type: "fbank"
   feat_config:
@@ -31,11 +38,16 @@ dataset:
   data_aug_config:
     use_speed_perturb: true
     use_spec_aug: true
+    use_add_noise: true
     add_noise_proportion: 0.5
     add_noise_config:
       min_snr_db: 10
       max_snr_db: 50
       max_gain_db: 300.0
+    use_mix_feats: true
+    mix_feats_proportion: 0.5
+    mix_feats_config:
+      snrs: [10, 20]
 
 encoder:
   model: "Conformer"
@@ -112,7 +124,10 @@ trainer:
   precision: "32-true"
   max_epochs: 20000
   val_check_interval: 1.0
-  accumulate_grad_batches: 10
+  accumulate_grad_batches: 1
+  gradient_clip_val: 5.0
+  gradient_clip_algorithm: "norm"
+  use_distributed_sampler: false
 
 callbacks:
   model_chkpt_config:
