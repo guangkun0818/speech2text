@@ -119,14 +119,10 @@ class AsrTrainDataset(BaseDataset):
         # Add Noise data_augmentation
         self._add_noise_proportion = self._data_aug_config[
             "add_noise_proportion"]
-        self._add_noise_config = self._data_aug_config["add_noise_config"]
-        self._add_noise = data_augmentation.add_noise
-
-        # Speed_perturb augmentation
-        self._speed_perturb = data_augmentation.speed_perturb
-
-        # Spec_augmentation
-        self._spec_augment = data_augmentation.spec_aug
+        self._add_noise = data_augmentation.AddNoise(
+            **self._data_aug_config["add_noise_config"])
+        self._speed_perturb = data_augmentation.SpeedPerturb()
+        self._spec_augment = data_augmentation.SpecAugment()
 
         self._compute_feature = FeatType[config["feat_type"]].value(
             **config["feat_config"])
@@ -153,15 +149,15 @@ class AsrTrainDataset(BaseDataset):
         if need_noisify_aug:
             noise_pcm, _ = torchaudio.load(random.choice(self._noise_dataset),
                                            normalize=True)
-            pcm = self._add_noise(pcm, noise_pcm, **self._add_noise_config)
+            pcm = self._add_noise.process(pcm, noise_pcm)
 
         if self._data_aug_config["use_speed_perturb"]:
-            pcm = self._speed_perturb(pcm)  # Speed_perturb aug
+            pcm = self._speed_perturb.process(pcm)  # Speed_perturb aug
 
         feat = self._compute_feature(pcm)  # Extract acoustic feats
 
         if self._data_aug_config["use_spec_aug"]:
-            feat = self._spec_augment(feat)  # Spec_aug
+            feat = self._spec_augment.process(feat)  # Spec_aug
 
         label_tensor = self._tokenizer.encode(data["text"])
 

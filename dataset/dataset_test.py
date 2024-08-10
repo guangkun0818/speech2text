@@ -31,6 +31,7 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
             "train_data": "sample_data/asr_train_data.json",
             "eval_data": "sample_data/asr_eval_data.json",
             "noise_data": "sample_data/noise_data.json",
+            "apply_segment": False,
             "dur_min_filter": 0.0,
             "dur_max_filter": 20.0,
             "batch_size": 256,
@@ -45,6 +46,7 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
             "data_aug_config": {
                 "use_speed_perturb": True,
                 "use_spec_aug": True,
+                "use_add_noise": True,
                 "add_noise_proportion": 0.5,
                 "add_noise_config": {
                     "min_snr_db": 10,
@@ -119,6 +121,7 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             "train_data": "sample_data/asr_train_data.json",
             "eval_data": "sample_data/asr_eval_data.json",
             "noise_data": "sample_data/noise_data.json",
+            "apply_segment": False,
             "dur_min_filter": 0.0,
             "dur_max_filter": 20.0,
             "batch_size": 256,
@@ -129,6 +132,7 @@ class TestAsrPcmCharDataset(unittest.TestCase):
             "data_aug_config": {
                 "use_speed_perturb": True,
                 "use_spec_aug": False,
+                "use_add_noise": True,
                 "add_noise_proportion": 0.5,
                 "add_noise_config": {
                     "min_snr_db": 10,
