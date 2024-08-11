@@ -13,17 +13,18 @@ from dataset.utils import TokenizerSetup
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
 from model.utils import AsrMetric, AsrMetricConfig
+from model.utils import SslMetric, SslMetricConfig
 
 # (B, T, D) = (2, 8, 5)
-_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0],
-                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 0.0, 1.0,
-                         0.0]]).unsqueeze(0).repeat(2, 1, 1)
+_CTC_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0],
+                            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0,
+                             0.0]]).unsqueeze(0).repeat(2, 1, 1)
 
 
 class TestCtcMetric(unittest.TestCase):
@@ -46,8 +47,8 @@ class TestCtcMetric(unittest.TestCase):
                                   config=AsrMetricConfig(**self._metric_config))
 
     # Params: (log probs, inputs_length, expect_wer)
-    @parameterized.expand([(_LOGITS, torch.Tensor([8, 8]).long(), 0.5),
-                           (_LOGITS, torch.Tensor([8, 3]).long(), 1.0)])
+    @parameterized.expand([(_CTC_LOGITS, torch.Tensor([8, 8]).long(), 0.5),
+                           (_CTC_LOGITS, torch.Tensor([8, 3]).long(), 1.0)])
     def test_metric_call(self, log_probs, inputs_length, expect_wer):
         glog.info(log_probs.shape)
         wer = self._metrics(hidden_states=log_probs,
@@ -109,6 +110,42 @@ class TestRnntMetric(unittest.TestCase):
                                 inputs_length=input_lengths,
                                 ground_truth=refers)
         glog.info("Wer: {}".format(wer))
+
+
+_SSL_LOGITS = torch.Tensor([[[0.1, 0.2, 0.3, 0.4], [0.4, 0.3, 0.2, 0.1]]])
+_SSL_LABELS = torch.LongTensor([[3, 1]])
+_SSL_MASKED_DIM = torch.LongTensor([[0, 1]])
+
+
+class TestSslMetrics(unittest.TestCase):
+    """ Unittest of SSL metrics """
+
+    def setUp(self) -> None:
+        ssl_config = {"top_ks": [1, 5]}
+        self._ssl_metrics = SslMetric(config=SslMetricConfig(**ssl_config))
+
+    def test_ssl_accuarcy(self):
+        top_k = 2
+        glog.info("logits: {}".format(_SSL_LOGITS))
+        glog.info("logits shape: {}".format(_SSL_LOGITS.shape))
+        glog.info("labels: {}".format(_SSL_LABELS))
+        glog.info("labels shape: {}".format(_SSL_LABELS.shape))
+        glog.info("masked_dim: {}".format(_SSL_MASKED_DIM))
+        glog.info("masked_dim shape: {}".format(_SSL_MASKED_DIM.shape))
+
+        acc = self._ssl_metrics._ssl_accuarcy(_SSL_LOGITS, _SSL_LABELS,
+                                              _SSL_MASKED_DIM, top_k)
+        glog.info("acc: {}".format(acc))
+
+    @parameterized.expand([(723,), (671,), (437,)])
+    def test_metrics_call(self, length):
+        # Unittest of loss forward
+        logits = torch.rand(2, length, 1024)
+        mask = torch.randint(0, 2, (2, length))
+        labels = torch.randint(0, 1024, (2, length))  # 0 <= label < 1024
+        metrics = self._ssl_metrics(logits, labels, mask)
+        for key in metrics:
+            glog.info("{}: {}".format(key, metrics[key]))
 
 
 if __name__ == "__main__":
