@@ -176,18 +176,22 @@ def TokenizerSetup(config) -> Tokenizer:
 
 def batch(batch: Dict[str, List]) -> Dict[str, torch.Tensor]:
     """ Padding dynamic length of inputs and stack as off-to-go batch. """
-    assert "feat" in batch
-    assert "feat_length" in batch
-    assert "label" in batch
-    assert "label_length" in batch
-
-    batch["feat"] = pad_sequence(batch["feat"],
-                                 batch_first=True,
-                                 padding_value=0)
-    batch["feat_length"] = torch.Tensor(batch["feat_length"]).long()
-    batch["label"] = pad_sequence(batch["label"],
-                                  batch_first=True,
-                                  padding_value=0)
-    batch["label_length"] = torch.Tensor(batch["label_length"]).long()
+    if "feat" in batch and "label" in batch:
+        batch["feat"] = pad_sequence(batch["feat"],
+                                     batch_first=True,
+                                     padding_value=0)
+        batch["feat_length"] = torch.Tensor(batch["feat_length"]).long()
+        batch["label"] = pad_sequence(batch["label"],
+                                      batch_first=True,
+                                      padding_value=0)
+        batch["label_length"] = torch.Tensor(batch["label_length"]).long()
+    elif "raw_feat" in batch and "auged_feat" in batch:
+        batch["raw_feat"] = pad_sequence(batch["raw_feat"],
+                                         batch_first=True,
+                                         padding_value=0)
+        batch["auged_feat"] = pad_sequence(batch["auged_feat"],
+                                           batch_first=True,
+                                           padding_value=0)
+        batch["feat_length"] = torch.Tensor(batch["feat_length"]).long()
 
     return batch
