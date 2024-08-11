@@ -35,7 +35,7 @@ class TestBestRQLayer(unittest.TestCase):
             "span_length_float_rate": None,
             "min_num_spans": 1,
             "no_overlap": True,
-            "min_space": 0,
+            "min_space": 1,
             "seed": None
         }
         self._bestrq = BestRQLayer(
@@ -53,7 +53,7 @@ class TestBestRQLayer(unittest.TestCase):
         batch = self._bestrq(test_feats, test_feats, test_lengths)
         glog.info("Masked feats shape: {}".format(batch["masked_feats"].shape))
         glog.info("Labels shape: {}".format(
-            batch["labels"].shape))  # (num codebooks. B. T // 4)
+            batch["labels"].shape))  # (num codebooks, B, T // 4)
         glog.info("Masked proportion: {}".format(batch["masked_dim"].sum() /
                                                  batch["masked_dim"].numel()))
         self.assertEqual(batch["labels"].shape[1:], batch["masked_dim"].shape)

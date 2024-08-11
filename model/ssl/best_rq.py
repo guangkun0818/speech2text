@@ -298,7 +298,7 @@ class BestRQLayer(nn.Module):
         """ Computes random mask spans for a given shape
             Args:
                 timestep: the timestep for which to compute masks
-                padding_num: Right padding length if original timestep, which help to 
+                padding_num: Right padding length of original timestep, which help to 
                     prevent masking on padded parts
             return: 
                 Selected id on labels to be predict. This will be used to do masking on original feats.
@@ -372,7 +372,7 @@ class BestRQLayer(nn.Module):
             for length in sorted(lengths, reverse=True):
                 # Create a new 1-dimensional array from an iterable object,
                 # this array size is same as parts's size,
-                # the element in this array equal to len if satisfy: len >= length + self. min_space,
+                # the element in this array equal to len if satisfy: len >= length + self._min_space,
                 # else equal to 0
                 lens = np.fromiter(
                     (e - s if e - s >= length + self._min_space else 0
