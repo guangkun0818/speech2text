@@ -467,8 +467,8 @@ class PrunedRnntTask(BaseRnntTask):
 
         # Organize batch as Loss API
         loss_input_batch = {
-            "log_probs": joiner_out,
-            "inputs_length": decoder_out_length,
+            "logits": joiner_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
             "boundary": boundary,
@@ -481,8 +481,8 @@ class PrunedRnntTask(BaseRnntTask):
             logits, logits_length = self._ctc_projector(decoder_out,
                                                         decoder_out_length)
             ctc_loss_input_batch = {
-                "log_probs": logits,
-                "inputs_length": logits_length,
+                "logits": logits,
+                "logits_length": logits_length,
                 "targets": batch["label"],
                 "targets_length": batch["label_length"],
             }
@@ -531,8 +531,8 @@ class PrunedRnntTask(BaseRnntTask):
 
         # Organize batch as Loss API
         loss_input_batch = {
-            "log_probs": joiner_out,
-            "inputs_length": decoder_out_length,
+            "logits": joiner_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
             "boundary": boundary,
@@ -545,8 +545,8 @@ class PrunedRnntTask(BaseRnntTask):
             logits, logits_length = self._ctc_projector(decoder_out,
                                                         decoder_out_length)
             ctc_loss_input_batch = {
-                "log_probs": logits,
-                "inputs_length": logits_length,
+                "logits": logits,
+                "logits_length": logits_length,
                 "targets": batch["label"],
                 "targets_length": batch["label_length"],
             }
