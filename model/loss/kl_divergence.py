@@ -35,12 +35,12 @@ class MaskedKLDivergence(nn.Module):
 
     def forward(self,
                 logits: torch.Tensor,
-                ori_label: torch.Tensor,
+                ori_labels: torch.Tensor,
                 mask: torch.Tensor = None) -> torch.Tensor:
         """ KL-Divergence loss forward.
             Args:
                 logits: Output from encoder, (B, T, D)
-                ori_label: SSL labels from original features, (B, T)
+                ori_labels: SSL labels from original features, (B, T)
                 mask: Mask on labels to predict in ssl task, (B) / (B, T) where 1 is valid,
                     vice versa. 
             Return:
@@ -52,7 +52,7 @@ class MaskedKLDivergence(nn.Module):
                 mask = make_non_pad_mask(mask)
             mask = mask.contiguous().reshape(-1)
         else:
-            mask = torch.ones_like(ori_label)
+            mask = torch.ones_like(ori_labels)
             mask = mask.contiguous().reshape(-1)
 
         # Encoder output dim equal to Codebook size + 1 since ssl
@@ -61,13 +61,13 @@ class MaskedKLDivergence(nn.Module):
         logits *= self._scale_factor
 
         # Build smoothed label
-        ori_label = ori_label.contiguous().reshape(-1)
+        ori_labels = ori_labels.contiguous().reshape(-1)
 
         smoothed_label = torch.zeros_like(logits)
         smoothed_label = smoothed_label.fill_(self._label_smoothing /
                                               (self._num_classes - 1))
         confidence = 1 - self._label_smoothing
-        smoothed_label.scatter_(-1, ori_label.unsqueeze(-1), confidence)
+        smoothed_label.scatter_(-1, ori_labels.unsqueeze(-1), confidence)
 
         loss = self._kl_div(logits.log_softmax(dim=-1), smoothed_label)
         loss.masked_fill_(~(mask.unsqueeze(-1).bool()),
