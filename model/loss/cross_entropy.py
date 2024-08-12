@@ -36,7 +36,7 @@ class MaskedCELoss(nn.Module):
             reduction="none", label_smoothing=self._label_smoothing)
 
     def forward(self,
-                enc_out: torch.Tensor,
+                logits: torch.Tensor,
                 ori_labels: torch.Tensor,
                 mask: torch.Tensor = None) -> torch.Tensor:
         """ Cross Entropy loss forward.
@@ -49,7 +49,10 @@ class MaskedCELoss(nn.Module):
         """
         # Encoder output dim equal to Codebook size + 1 since ssl
         # label start from 1 not 0, where 0 indicating mask_id
-        logits = enc_out.contiguous().reshape(-1, self._num_classes)
+        max_seq_len = logits.size(1)
+
+        logits = logits.contiguous().reshape(
+            -1, self._num_classes)  # (B * T, num_classes)
         logits *= self._scale_factor
 
         valid_labels = ori_labels.contiguous().reshape(-1)
@@ -57,7 +60,7 @@ class MaskedCELoss(nn.Module):
 
         if mask is not None:
             if len(mask.shape) == 1:
-                assert torch.max(mask) == enc_out.size(1)
+                assert torch.max(mask) == max_seq_len
                 mask = make_non_pad_mask(mask).long()
             mask = mask.contiguous().reshape(-1)
             loss *= mask  # Mask out labels not to be predicted
@@ -65,13 +68,13 @@ class MaskedCELoss(nn.Module):
 
         return loss.mean()
 
-    def predict(self, enc_out: torch.Tensor) -> torch.Tensor:
+    def predict(self, logits: torch.Tensor) -> torch.Tensor:
         """ Predict interface for metrics evaluation
             Args:
                 enc_out: Output of Encoder, (B, T, D)
             Return:
                 probs: Probs of each categories, (B, T, num_classes)
         """
-        enc_out *= self._scale_factor
-        probs = enc_out.softmax(dim=-1)
+        logits *= self._scale_factor
+        probs = logits.softmax(dim=-1)
         return probs

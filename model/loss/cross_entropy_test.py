@@ -32,8 +32,8 @@ class TestMaskedCELoss(unittest.TestCase):
     @parameterized.expand([(723,), (671,), (437,)])
     def test_predict(self, length):
         # Unittest of prediction
-        enc_out = torch.rand(2, length, 8193)
-        probs = self._masked_ce_loss.predict(enc_out=enc_out)
+        logits = torch.rand(2, length, 8193)
+        probs = self._masked_ce_loss.predict(logits=logits)
         self.assertEqual(probs.shape[-1], self._loss_config["num_classes"])
         self.assertTrue(torch.allclose(probs.sum(dim=-1), torch.ones(2,
                                                                      length)))

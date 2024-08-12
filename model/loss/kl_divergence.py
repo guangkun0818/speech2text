@@ -75,13 +75,13 @@ class MaskedKLDivergence(nn.Module):
 
         return loss.sum() / mask.sum()
 
-    def predict(self, enc_out: torch.Tensor) -> torch.Tensor:
+    def predict(self, logits: torch.Tensor) -> torch.Tensor:
         """ Predict interface for metrics evaluation
             Args:
-                enc_out: Output of Encoder, (B, T, D)
+                logits: Output of Encoder, (B, T, D)
             Return:
                 probs: Probs of each categories, (B, T, num_classes)
         """
-        enc_out *= self._scale_factor
-        probs = enc_out.log_softmax(dim=-1)
+        logits *= self._scale_factor
+        probs = logits.log_softmax(dim=-1)
         return probs
