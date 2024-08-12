@@ -23,6 +23,7 @@ from tools.spm_train import spm_training_preprocess
 
 from ctc_task import CtcTask
 from rnnt_task import RnntTask, CtcHybridRnnt, PrunedRnntTask
+from ssl_task import SslTask
 
 FLAGS = gflags.FLAGS
 
@@ -37,6 +38,7 @@ class TaskFactory(Enum):
     Rnnt = RnntTask
     CTC_Hybrid_Rnnt = CtcHybridRnnt
     Pruned_Rnnt = PrunedRnntTask
+    SSL = SslTask
 
 
 def run_task():
