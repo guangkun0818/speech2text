@@ -137,8 +137,8 @@ class CtcTask(pl.LightningModule):
 
         # Organize batch as Loss API
         loss_input_batch = {
-            "log_probs": decoder_out,
-            "inputs_length": decoder_out_length,
+            "logits": decoder_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"]
         }
@@ -165,8 +165,8 @@ class CtcTask(pl.LightningModule):
 
         # Organize batch as Loss API
         loss_input_batch = {
-            "log_probs": decoder_out,
-            "inputs_length": decoder_out_length,
+            "logits": decoder_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"]
         }

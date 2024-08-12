@@ -29,19 +29,6 @@ class Loss(nn.Module):
 
     def forward(self, batch: Dict[str, torch.Tensor]):
         """ Loss training graph """
-        assert "log_probs" in batch
-        assert "inputs_length" in batch
-        assert "targets" in batch
-        assert "targets_length" in batch
-        # This shitty desgin is freaking sacifice of consistency API of
-        # all different losses.
-        if "boundary" in batch.keys() and "ranges" in batch.keys(
-        ) and batch["boundary"] is not None and batch["ranges"] is not None:
-            # Indicating PrunedntLoss applied
-            loss = self.loss(batch["log_probs"], batch["targets"],
-                             batch["inputs_length"], batch["targets_length"],
-                             batch["boundary"], batch["ranges"])
-        else:
-            loss = self.loss(batch["log_probs"], batch["targets"],
-                             batch["inputs_length"], batch["targets_length"])
+
+        loss = self.loss(**batch)
         return loss
