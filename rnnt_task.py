@@ -220,12 +220,10 @@ class RnntTask(BaseRnntTask):
 
         # Organize batch as Loss API
         loss_input_batch = {
-            "log_probs": joiner_out,
-            "inputs_length": decoder_out_length,
+            "logits": joiner_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
-            "boundary": boundary,
-            "ranges": ranges  # API compliance with pruned rnnt.
         }
 
         loss = self._loss(loss_input_batch)
@@ -262,12 +260,10 @@ class RnntTask(BaseRnntTask):
 
         # Organize batch as Loss API
         loss_input_batch = {
-            "log_probs": joiner_out,
-            "inputs_length": decoder_out_length,
+            "logits": joiner_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
-            "boundary": boundary,
-            "ranges": ranges  # API compliance with pruned rnnt.
         }
 
         loss = self._loss(loss_input_batch)
@@ -330,18 +326,16 @@ class CtcHybridRnnt(BaseRnntTask):
 
         # Organize batch as Loss API
         rnnt_loss_input_batch = {
-            "log_probs": joiner_out,
-            "inputs_length": encoder_out_length,
+            "logits": joiner_out,
+            "logits_length": encoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
-            "boundary": boundary,
-            "ranges": ranges  # API compliance with pruned rnnt.
         }
         loss_rnnt = self._rnnt_loss(rnnt_loss_input_batch)
 
         ctc_loss_input_batch = {
-            "log_probs": decoder_out,
-            "inputs_length": decoder_out_length,
+            "logits": decoder_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
         }
@@ -387,18 +381,16 @@ class CtcHybridRnnt(BaseRnntTask):
 
         # Organize batch as Loss API
         rnnt_loss_input_batch = {
-            "log_probs": joiner_out,
-            "inputs_length": encoder_out_length,
+            "logits": joiner_out,
+            "logits_length": encoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
-            "boundary": boundary,
-            "ranges": ranges  # API compliance with pruned rnnt.
         }
         loss_rnnt = self._rnnt_loss(rnnt_loss_input_batch)
 
         ctc_loss_input_batch = {
-            "log_probs": decoder_out,
-            "inputs_length": decoder_out_length,
+            "logits": decoder_out,
+            "logits_length": decoder_out_length,
             "targets": batch["label"],
             "targets_length": batch["label_length"],
         }
