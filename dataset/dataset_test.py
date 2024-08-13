@@ -10,7 +10,8 @@ import unittest
 from parameterized import parameterized
 from torch.utils.data import DataLoader
 from dataset.dataset import AsrTrainDataset, AsrEvalDataset, AsrTestDataset
-from dataset.dataset import asr_collate_fn
+from dataset.dataset import SslTrainDataset, SslEvalDataset
+from dataset.dataset import asr_collate_fn, ssl_collate_fn
 from dataset.utils import TokenizerSetup
 
 
@@ -216,6 +217,85 @@ class TestAsrTestDataset(unittest.TestCase):
             count += 1
             glog.info("feat: {}".format(batch["feat"].shape))
             glog.info("text: {}".format(batch["text"]))
+            glog.info(count)
+
+
+class TestSslTrainEvalDataset(unittest.TestCase):
+    """ Unittest of SSL train eval dataset. """
+
+    def setUp(self) -> None:
+        self._dataset_config = {
+            "train_data": "sample_data/asr_train_data.json",
+            "eval_data": "sample_data/asr_eval_data.json",
+            "noise_data": "sample_data/noise_data.json",
+            "apply_segment": False,
+            "dur_min_filter": 0.0,
+            "dur_max_filter": 20.0,
+            "batch_size": 256,
+            "feat_type": "fbank",
+            "feat_config": {
+                "num_mel_bins": 80,
+                "frame_length": 25,
+                "frame_shift": 10,
+                "dither": 0.0,
+                "samplerate": 16000
+            },
+            "data_aug_config": {
+                "use_speed_perturb": True,
+                "use_spec_aug": True,
+                "use_add_noise": True,
+                "add_noise_proportion": 0.5,
+                "add_noise_config": {
+                    "min_snr_db": 10,
+                    "max_snr_db": 50,
+                    "max_gain_db": 300.0,
+                },
+                "use_mix_feats": True,
+                "mix_feats_proportion": 0.5,
+                "mix_feats_config": {
+                    "snrs": [10, 20]
+                }
+            }
+        }
+        self._train_dataset = SslTrainDataset(self._dataset_config)
+        self._eval_dataset = SslEvalDataset(self._dataset_config)
+
+    def test_dataset_info(self):
+        glog.info("Total duration: {}".format(
+            self._train_dataset.total_duration))
+        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
+        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+
+    # Batch_size from 40/101/341
+    @parameterized.expand([(40,), (101,), (341,)])
+    def test_train_dataset(self, batch_size):
+        glog.info("Unittest of train_dataset, fbank and subword specified.")
+        count = 0
+        dataloader = DataLoader(dataset=self._train_dataset,
+                                batch_size=batch_size,
+                                collate_fn=ssl_collate_fn)
+        for i, batch in enumerate(dataloader):
+            count += 1
+            glog.info("raw_feat: {}".format(batch["raw_feat"].shape))
+            glog.info("auged_feat: {}".format(batch["auged_feat"].shape))
+            glog.info("feat_length: {}".format(batch["feat_length"]))
+            self.assertEqual(batch["raw_feat"].shape, batch["auged_feat"].shape)
+            glog.info(count)
+
+    # Batch_size from 40/101/341
+    @parameterized.expand([(40,), (101,), (341,)])
+    def test_eval_dataset(self, batch_size):
+        glog.info("Unittest of eval_dataset, fbank and subword specified.")
+        count = 0
+        dataloader = DataLoader(dataset=self._eval_dataset,
+                                batch_size=batch_size,
+                                collate_fn=ssl_collate_fn)
+        for i, batch in enumerate(dataloader):
+            count += 1
+            glog.info("raw_feat: {}".format(batch["raw_feat"].shape))
+            glog.info("auged_feat: {}".format(batch["auged_feat"].shape))
+            glog.info("feat_length: {}".format(batch["feat_length"]))
+            self.assertEqual(batch["raw_feat"].shape, batch["auged_feat"].shape)
             glog.info(count)
 
 

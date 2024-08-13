@@ -32,7 +32,7 @@ class PrunedRnntLoss(nn.Module):
         self._reduction = config.reduction
 
     def forward(self, logits: torch.Tensor, targets: torch.Tensor,
-                logit_lengths: torch.Tensor, target_lengths: torch.Tensor,
+                logits_length: torch.Tensor, targets_length: torch.Tensor,
                 boundary: torch.Tensor, ranges: torch.Tensor):
 
         # NOTE: logits should strictly be fp32 even if 16-mixed specified.

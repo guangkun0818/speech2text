@@ -83,8 +83,9 @@ def spm_training_preprocess(task_type, task_export_path, config):
             task_type: Specify task type, only work on text data related task
             config: Yaml config of given task_type 
     """
-    assert task_type not in (
-        "SSL"), "`spm_train` work on text data related task."
+    if task_type == "SSL":
+        glog.info("Sentencepiece model training will be overrided in SSL task.")
+        return config
 
     # Only work on subword tokenizer
     if config["tokenizer"]["type"] == "subword":

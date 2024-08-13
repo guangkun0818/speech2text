@@ -296,6 +296,163 @@ class AsrTestDataset(BaseDataset):
         return {"feat": feat, "text": data["text"]}
 
 
+class SslTrainDataset(BaseDataset):
+    """ Self-supervised learning train dataset 
+        
+        Ssl Feature Pipeline: 
+        load_pcm() -> speed_perturb() -> compute_feats() -> raw_feats
+                            ↓
+                        add_noise() -> mix_feats() -> compute_feats() -> spec_aug() -> auged_feats
+    """
+
+    def __init__(self, config) -> None:
+        super(SslTrainDataset,
+              self).__init__(dataset_json=config["train_data"],
+                             dur_min_filter=config["dur_min_filter"],
+                             dur_max_filter=config["dur_max_filter"],
+                             noiseset_json=config["noise_data"])
+
+        glog.info("Train dataset duration: {}h.".format(
+            self.total_duration / 3600, ".2f"))
+
+        self._dataset_config = config
+        self._compute_feature = FeatType[config["feat_type"]].value(
+            **config["feat_config"])
+
+        # Add Noise data_augmentation
+        self._data_aug_config = config["data_aug_config"]
+        self._add_noise_proportion = self._data_aug_config[
+            "add_noise_proportion"]
+        self._add_noise = data_augmentation.AddNoise(
+            **self._data_aug_config["add_noise_config"])
+        self._speed_perturb = data_augmentation.SpeedPerturb()
+        self._spec_augment = data_augmentation.SpecAugment()
+        self._mix_feats_proportion = self._data_aug_config[
+            "mix_feats_proportion"]
+        self._mix_feats = data_augmentation.MixFeats(
+            **self._data_aug_config["mix_feats_config"])
+
+    def __getitem__(self, index):
+        """ Return: {
+                "raw_feat": Tensor.float(T, D),
+                "auged_feat": Tensor.float(T, D),
+                "feat_length": int
+            }
+        """
+        data = self._dataset[index]
+
+        assert "audio_filepath" in data
+        assert "text" in data
+
+        # Apply segmentation on origin audio, quite slow not recommend.
+
+        frame_offset, num_frames = self.compute_offset(
+            start=data["segment"][0], end=data["segment"]
+            [1]) if self._dataset_config["apply_segment"] else 0, -1
+
+        raw_pcm, framerate = torchaudio.load(
+            data["audio_filepath"],
+            frame_offset=frame_offset,
+            num_frames=num_frames,
+            normalize=self._compute_feature.pcm_normalize)
+
+        if self._data_aug_config["use_speed_perturb"]:
+            raw_pcm = self._speed_perturb.process(
+                raw_pcm)  # Speed_perturb on raw pcm
+
+        raw_feat = self._compute_feature(
+            raw_pcm)  # Extract acoustic feats of raw pcm
+
+        # Data Augmentation: Add Noise
+        auged_pcm = raw_pcm
+        if self._data_aug_config["use_add_noise"]:
+            # Use add noise proportion control the augmentation ratio of all dataset
+            need_noisify_aug = random.uniform(0, 1) < self._add_noise_proportion
+            if need_noisify_aug:
+                noise_pcm, _ = torchaudio.load(
+                    random.choice(self._noise_dataset)["noise_filepath"],
+                    normalize=self._compute_feature.pcm_normalize)
+                auged_pcm = self._add_noise.process(raw_pcm, noise_pcm)
+
+        auged_feat = self._compute_feature(auged_pcm)  # Extract acoustic feats
+
+        if self._data_aug_config["use_mix_feats"]:
+            need_mix_feats = random.uniform(0, 1) < self._mix_feats_proportion
+            if need_mix_feats:
+                noise_entry = random.choice(self._noise_dataset)
+                # Avoid waste on compute feats on unused noise_pcm.
+                start_t = random.uniform(
+                    0, max(0, noise_entry["duration"] - data["duration"]))
+                end_t = min(start_t + data["duration"], noise_entry["duration"])
+                frame_offset, num_frames = self.compute_offset(start_t, end_t)
+
+                noise_pcm, _ = torchaudio.load(
+                    noise_entry["noise_filepath"],
+                    frame_offset=frame_offset,
+                    num_frames=num_frames,
+                    normalize=self._compute_feature.pcm_normalize)
+                noise_feats = self._compute_feature(noise_pcm)
+                auged_feat = self._mix_feats.process(src=auged_feat,
+                                                     noise=noise_feats)
+
+        if self._data_aug_config["use_spec_aug"]:
+            auged_feat = self._spec_augment.process(auged_feat)  # Spec_aug
+
+        return {
+            "raw_feat": raw_feat,  # (T, D)
+            "auged_feat": auged_feat,
+            "feat_length": raw_feat.shape[0],
+        }
+
+
+class SslEvalDataset(BaseDataset):
+    """ Self-supervised learning eval dataset """
+
+    def __init__(self, config) -> None:
+        super(SslEvalDataset,
+              self).__init__(dataset_json=config["eval_data"],
+                             dur_min_filter=config["dur_min_filter"],
+                             dur_max_filter=config["dur_max_filter"],
+                             noiseset_json=None)
+        glog.info("Eval dataset duration: {}h.".format(
+            self.total_duration / 3600, ".2f"))
+
+        self._dataset_config = config
+        self._compute_feature = FeatType[config["feat_type"]].value(
+            **config["feat_config"])
+
+    def __getitem__(self, index):
+        """ Return: {
+                "raw_feat": Tensor.float(T, D),
+                "auged_feat": Tensor.float(T, D),
+                "feat_length": int
+            }
+        """
+        data = self._dataset[index]
+
+        assert "audio_filepath" in data
+        assert "text" in data
+
+        # Apply segmentation on origin audio, quite slow not recommend.
+        frame_offset, num_frames = self.compute_offset(
+            start=data["segment"][0], end=data["segment"]
+            [1]) if self._dataset_config["apply_segment"] else 0, -1
+
+        pcm, framerate = torchaudio.load(
+            data["audio_filepath"],
+            frame_offset=frame_offset,
+            num_frames=num_frames,
+            normalize=self._compute_feature.pcm_normalize)
+
+        feat = self._compute_feature(pcm)
+
+        return {
+            "raw_feat": feat,
+            "auged_feat": feat,
+            "feat_length": feat.shape[0],
+        }
+
+
 def asr_collate_fn(raw_batch: List[Dict]) -> Dict:
     """ Batching and Padding sequence right before output, 
         implement for train, eval 
@@ -317,6 +474,29 @@ def asr_collate_fn(raw_batch: List[Dict]) -> Dict:
         batch_map["feat_length"].append(data_slice["feat_length"])
         batch_map["label"].append(data_slice["label"])
         batch_map["label_length"].append(data_slice["label_length"])
+
+    batch = utils.batch(batch_map)
+    return batch
+
+
+def ssl_collate_fn(raw_batch: List[Dict]) -> Dict:
+    """ Batching and Padding sequence right before output, 
+        implement self-supervised learning.
+    """
+    batch_map = {
+        "raw_feat": [],
+        "auged_feat": [],
+        "feat_length": [],
+    }
+    for data_slice in raw_batch:
+        # Reorganize batch data as Map
+        glog.check("raw_feat" in data_slice.keys())
+        glog.check("auged_feat" in data_slice.keys())
+        glog.check("feat_length" in data_slice.keys())
+
+        batch_map["raw_feat"].append(data_slice["raw_feat"])
+        batch_map["auged_feat"].append(data_slice["auged_feat"])
+        batch_map["feat_length"].append(data_slice["feat_length"])
 
     batch = utils.batch(batch_map)
     return batch

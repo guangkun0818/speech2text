@@ -17,6 +17,8 @@ from model.joiner.joiner import Joiner
 from model.decoding import (reference_decoder, batch_search, RnntGreedyDecoding,
                             CtcGreedyDecoding)
 
+from typing import Tuple
+
 
 def _levenshtein(a: List, b: List) -> int:
     """ Calculates the Levenshtein distance between a and b.
@@ -130,3 +132,59 @@ class AsrMetric(object):
                                   self._decode_sess)
         wer = word_error_rate(hypotheses=hypotheses, references=references)
         return wer
+
+
+@dataclasses.dataclass
+class SslMetricConfig:
+    """ Config of SSl Metrics, Top_k acc.
+    """
+    top_ks: Tuple[int] = (1, 5)
+
+
+class SslMetric(object):
+    """ Metric for ssl training """
+
+    def __init__(self, config: SslMetricConfig):
+        # Initialization
+        self._compute_acc = self._ssl_accuarcy
+        self._top_ks = config.top_ks
+
+    def _ssl_accuarcy(self, logits: torch.Tensor, labels: torch.Tensor,
+                      masked_dim: torch.Tensor, top_k):
+        """ Compute ACC with given top_k of SSL task 
+            Args:
+                logits: torch.Size(B, T, D)
+                labels: torch.Size(B, T)
+                masked_dim: torch.Size(B, T)
+                top_k: Top_k ACC
+        """
+        batch_size = labels.shape[0]
+
+        logits_top_k = logits.topk(
+            top_k, dim=-1, largest=True,
+            sorted=True).indices  # logits_top_k shape: (B, T, top_k)
+
+        # Masked_dim, where 1 indicate position to be predicted, therefore, mask out 0 position
+        # for metrics (ACC) evaluation.
+        valid_logits_top_k = logits_top_k.masked_fill(
+            (1 - masked_dim).unsqueeze(-1).bool(), value=-1)
+
+        valid_labels = masked_dim * labels
+        valid_labels = valid_labels.unsqueeze(-1)
+
+        # Compute num matches within batch
+        num_matched = torch.eq(valid_logits_top_k, valid_labels).sum().float()
+
+        # ACC of top_k
+        return num_matched / (masked_dim.sum() + 1e-7
+                             )  # In case inf acc due to no mask within batch
+
+    def __call__(self, logits: torch.Tensor, labels: torch.Tensor,
+                 masked_dim: torch.Tensor):
+        """ Call func of Metric """
+        # Return metrics as dic during eval stage
+        metrics = {}
+        for k in self._top_ks:
+            metrics["top_{}_acc".format(k)] = self._compute_acc(
+                logits=logits, labels=labels, masked_dim=masked_dim, top_k=k)
+        return metrics

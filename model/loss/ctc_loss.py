@@ -32,10 +32,10 @@ class CtcLoss(nn.Module):
                                 reduction=self._reduction,
                                 zero_infinity=self._zero_infinity)
 
-    def forward(self, enc_out, targets, inputs_length, targets_length):
+    def forward(self, logits, targets, logits_length, targets_length):
         # CTC only accept Log_Probs
-        log_probs = F.log_softmax(enc_out, dim=-1)
+        log_probs = F.log_softmax(logits, dim=-1)
         # Need transpose (B, T, N) as (T, B, N), where B
         # stands for batch_size, T stands for sequence length
         log_probs = log_probs.transpose(0, 1).to(dtype=torch.float32)
-        return self._loss(log_probs, targets, inputs_length, targets_length)
+        return self._loss(log_probs, targets, logits_length, targets_length)

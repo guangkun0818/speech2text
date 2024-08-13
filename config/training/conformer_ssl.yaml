@@ -1,0 +1,137 @@
+# Demo training config of Conformer Self-supervised learning
+
+task:
+  type: "SSL"
+  name: "conformer-ssl"
+  export_path: "tasks/debug"
+
+dataset:
+  train_data: "sample_data/asr_train_data.json"
+  eval_data: "sample_data/asr_eval_data.json"
+  noise_data: "sample_data/noise_data.json"
+  apply_segment: false
+  dur_min_filter: 0.1
+  dur_max_filter: 60.0
+  batch_size: 16
+  use_bucket_sampler: true
+  bucket_sampler_config:
+    num_bucket: 30
+    key: "duration"
+    min_batch_size: 16
+    volume_threshold: 300.0
+  
+  feat_type: "fbank"
+  feat_config:
+    num_mel_bins: 80
+    frame_length: 25
+    frame_shift: 10
+    dither: 0.0
+    samplerate: 16000
+  
+  data_aug_config:
+    use_speed_perturb: true
+    use_spec_aug: true
+    use_add_noise: true
+    add_noise_proportion: 0.5
+    add_noise_config:
+      min_snr_db: 10
+      max_snr_db: 50
+      max_gain_db: 300.0
+    use_mix_feats: true
+    mix_feats_proportion: 0.5
+    mix_feats_config:
+      snrs: [10, 20]
+
+ssl_layer:
+  model: "Best-RQ" 
+  layer_config:
+    cnn_kernel_size: [3, 3] # Kernel size setting of subsampling module within encodes
+    cnn_stride: [2, 2] # stride setting of subsampling module with encoder
+    feat_dim: 80 # Acoustic feats dim 
+    num_codebooks: 1 # Multi-codebooks 
+    codebook_dim: 16 # Codebook embedding size 
+    codebook_size: 8192 # Codebook size 
+    label_basis: "cosine" 
+  masking_config:
+    mask_proportion: 0.5
+    mean_span_length: 1
+    span_select_type: "static" 
+    span_length_float_rate: null 
+    min_num_spans: 1 
+    no_overlap: false 
+    min_space: 0
+    seed: 1234
+
+encoder:
+  model: "Conformer"
+  config:
+    bn_cmvn: false
+    feats_dim: 80
+    subsampling_rate: 4
+    input_dim: 256
+    num_heads: 4
+    ffn_dim: 2048
+    num_layers: 18
+    depthwise_conv_kernel_size: 31
+    dropout: 0.1
+    use_group_norm: false
+    convolution_first: false
+    output_dim: 256
+
+logits_layer:
+  model: "Projector"
+  config:
+    input_dim: 256
+    output_dim: 8193
+    dropout_p: 0.0
+
+loss:
+  loss_select: "mask_loss"
+  model: "MaskedKLDiv" 
+  config:
+    num_classes: 8193 # Codebooksize + 1
+    scale_factor: 1.0
+    label_smoothing: 0.1 
+
+metric:
+  top_ks: [1, 5]
+
+optim_setup:
+  optimizer:
+    type: "AdamW"
+    config:
+      lr: 0.0003
+      weight_decay: 0.0005
+  lr_scheduler:
+    type: "Warmup"
+    config:
+      warmup_steps: 20000
+    step_config:
+      interval: "step"
+      frequency: 1
+
+trainer:
+  accelerator: "gpu" 
+  devices: 1 
+  strategy: "ddp" 
+  precision: "32-true"
+  max_epochs: 2000
+  val_check_interval: 1.0
+  accumulate_grad_batches: 1
+  gradient_clip_val: 5.0
+  gradient_clip_algorithm: "norm"
+  use_distributed_sampler: false
+
+callbacks:
+  model_chkpt_config:
+    monitor: "top_5_acc"
+    mode: "max"
+    save_top_k: 10
+  frontend_save: true
+  global_cmvn:
+    apply: true
+    pre_compute_cmvn: null
+
+finetune:
+  base_model: null 
+resume: null
