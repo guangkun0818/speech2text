@@ -12,7 +12,8 @@ from parameterized import parameterized
 
 from dataset.utils import TokenizerSetup
 from model.decoding import (reference_decoder, batch_search, CtcGreedyDecoding,
-                            RnntGreedyDecoding, RnntBeamDecoding)
+                            RnntGreedyDecoding, RnntBeamDecoding,
+                            CifGreedyDecoding)
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
 
@@ -204,6 +205,28 @@ class TestRnntBeamDecoding(unittest.TestCase):
     def test_rnnt_beam_decode(self):
         hidden_states = torch.rand(1, 64, 512)
         result = self._decode_session.decode(hidden_states)
+        glog.info(result)
+
+
+class TestCifGreedyDecoding(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self._tokenzier_config = {
+            "type": "subword",
+            "config": {
+                "spm_model": "sample_data/spm/tokenizer.model",
+                "spm_vocab": "sample_data/spm/tokenizer.vocab"
+            }
+        }
+        self._tokenzier = TokenizerSetup(self._tokenzier_config)
+        self._decode_session = CifGreedyDecoding(tokenizer=self._tokenzier)
+
+    def test_cif_greedy_decoding(self):
+        hidden_states = torch.rand(4, 100, 128)  # (B, T, label_dim)
+        input_lengths = torch.Tensor([23, 80, 100, 64]).long()
+        result = batch_search(hidden_states=hidden_states,
+                              inputs_length=input_lengths,
+                              decode_session=self._decode_session)
         glog.info(result)
 
 

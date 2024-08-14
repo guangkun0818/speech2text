@@ -100,6 +100,22 @@ def reference_decoder(tensor: torch.Tensor, tokenizer: Tokenizer):
     return references
 
 
+class CifGreedyDecoding(DecodingMethod):
+    """ CIF greedy decoding, Non-autoregressive argmax. """
+
+    def __init__(self, tokenizer: Tokenizer) -> None:
+        super().__init__()
+        self._tokenizer = tokenizer
+
+    def decode(self, hidden_states: torch.Tensor) -> str:
+        # hidden_states: (1, T, D), decoder output after cif output
+        assert hidden_states.shape[0] == 1, "Support BatchSize = 1 only."
+        assert hidden_states.shape[-1] == len(self._tokenizer.labels)
+
+        greedy_result = torch.argmax(hidden_states, dim=-1).squeeze(0)
+        return self._tokenizer.decode(torch.Tensor(greedy_result))
+
+
 class RnntGreedyDecoding(DecodingMethod):
     """ Internal Rnnt Greedy decoding
         Args:

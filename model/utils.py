@@ -15,7 +15,7 @@ from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner
 
 from model.decoding import (reference_decoder, batch_search, RnntGreedyDecoding,
-                            CtcGreedyDecoding)
+                            CtcGreedyDecoding, CifGreedyDecoding)
 
 from typing import Tuple
 
@@ -117,6 +117,8 @@ class AsrMetric(object):
                 predictor=predictor,
                 joiner=joiner,
                 max_token_step=config.max_token_step)
+        elif config.decode_method == "cif_greedy_search":
+            self._decode_sess = CifGreedyDecoding(tokenizer=self._tokenizer)
         else:
             NotImplementedError
 
