@@ -13,6 +13,7 @@ from model.loss.rnnt_loss import RnntLoss, RnntLossConfig
 from model.loss.pruned_rnnt_loss import PrunedRnntLoss, PrunedRnntLossConfig
 from model.loss.cross_entropy import MaskedCELoss, MaskedCELossConfig
 from model.loss.kl_divergence import MaskedKLDivergence, MaskedKLDivergenceConfig
+from model.loss.mae_loss import MaeLoss, MaeLossConfig
 
 
 class Loss(nn.Module):
@@ -34,6 +35,10 @@ class Loss(nn.Module):
         elif config["model"] == "MaskedKLDiv":
             self.loss = MaskedKLDivergence(config=MaskedKLDivergenceConfig(
                 **config["config"]))
+        elif config["model"] == "MaeLoss":
+            self.loss = MaeLoss(config=MaeLossConfig(**config["config"]))
+        else:
+            raise ValueError("Not support {} loss".format(config["model"]))
 
     def forward(self, batch: Dict[str, torch.Tensor]):
         """ Loss training graph """

@@ -21,7 +21,7 @@ class MaeLoss(nn.Module):
         super(MaeLoss, self).__init__()
 
         self._normalize_length = config.normalize_length
-        self._criterion = nn.L1Loss(reduction="mean")
+        self._criterion = nn.L1Loss(reduction="sum")
 
     def forward(self, tokens_length: torch.Tensor,
                 pre_tokens_length: torch.Tensor):
