@@ -147,7 +147,7 @@ class CifLayer(nn.Module):
             alphas = torch.cat([alphas, tail_threshold], dim=1)
 
         zeros = torch.zeros((batch, 1, dim),
-                            type=encoder_out.dtype).to(encoder_out.device)
+                            dtype=encoder_out.dtype).to(encoder_out.device)
         encoder_out = torch.cat([encoder_out, zeros], dim=1)
         token_num = alphas.sum(dim=-1)
         token_num_floor = torch.floor(token_num)
