@@ -12,6 +12,7 @@ import dataclasses
 import math
 import torch
 
+from enum import Enum, unique
 from typing import List, Optional
 from torchaudio.models.decoder import ctc_decoder
 
@@ -422,3 +423,13 @@ class RnntBeamDecoding(DecodingMethod):
                                             reverse=True)[:self._beam_size]
         # Best beam
         self._decoding_state.best_beam = self._decoding_state.beams[0]
+
+
+@unique
+class DecodingFactory(Enum):
+    """ Decoding factory for task setting """
+    ctc_greedy_decoding = CtcGreedyDecoding
+    ctc_lexicon_beam_decoding = CtcLexiconBeamDecoding
+    cif_greedy_decoding = CifGreedyDecoding
+    rnnt_greedy_decoding = RnntGreedyDecoding
+    rnnt_beam_decoding = RnntBeamDecoding
