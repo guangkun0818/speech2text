@@ -157,7 +157,7 @@ class BaseCifTask(pl.LightningModule):
 
 
 class CifTask(BaseCifTask):
-    """ Vanilla CIF task impl """
+    """ Vanilla CIF task impl, Non-causal """
 
     def __init__(self, config) -> None:
         super(CifTask, self).__init__(config=config)
