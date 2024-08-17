@@ -5,12 +5,16 @@
     and Rnnt decoder included.
 """
 
+import glog
+import os
 import abc
 import dataclasses
 import math
 import torch
 
-from typing import List
+from typing import List, Optional
+from torchaudio.models.decoder import ctc_decoder
+
 from dataset.utils import Tokenizer
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner
@@ -75,6 +79,78 @@ class CtcGreedyDecoding(DecodingMethod):
         hypothesis = self._tokenizer.decode(
             torch.Tensor(decoded_prediction).long())
         return hypothesis
+
+
+class CtcLexiconBeamDecoding(DecodingMethod):
+    """ Wrapped ctc_decoder provided from torchaudio, which is build 
+        from flashlight-text decoder, https://github.com/flashlight/text. 
+    """
+
+    def __init__(self,
+                 tokenizer: Tokenizer,
+                 nbest: int = 1,
+                 beam_size: int = 50,
+                 beam_size_token: Optional[int] = None,
+                 beam_threshold: float = 50,
+                 blank_token: str = "<blank_id>",
+                 sil_token: str = "<blank_id>",
+                 language_model: str = None,
+                 word_list: str = None,
+                 export_path: str = None) -> None:
+
+        self._tokenizer = tokenizer
+        self._lm_path = language_model
+        self._wl_path = word_list
+        self._sil_token = sil_token
+        self._export_path = export_path
+
+        self._lexicon = None
+        if self._lm_path is not None and self._wl_path is not None:
+            # If both language model and word list is not none, specify n-gram lm applied.
+            self._lexicon = self._generate_lexicon(self._wl_path,
+                                                   self._sil_token)
+
+        self._ctc_decoder = ctc_decoder(
+            lexicon=self._lexicon,
+            tokens=self._tokenizer.labels,
+            lm=self._lm_path,
+            nbest=nbest,
+            beam_size=beam_size,
+            beam_size_token=beam_size_token,
+            beam_threshold=beam_threshold,
+            blank_token=blank_token,
+            sil_token=sil_token,
+        )
+
+    def _generate_lexicon(self, word_list, sil_token) -> str:
+        # Generate Lexicon file if wordlist is specified in config. This
+        # will lead to use LexiconDecoder.
+        lm_rsrc = os.path.join(self._export_path, "lm_rsrc")
+        os.makedirs(lm_rsrc, exist_ok=True)
+        lexicon_path = os.path.join(lm_rsrc, "lexicon")
+
+        glog.info("Generating Lexicon from word list....")
+        with open(lexicon_path, 'w') as lexicon_f, open(word_list, 'r') as wl_f:
+            for line in wl_f:
+                word = line.strip()
+                assert sil_token == "<blank_id>"
+                dict_entry = [word] + self._tokenizer.encode_as_tokens(word)
+                lexicon_f.write("{}\n".format(dict_entry))
+        glog.info("Generated Lexicon stored in {}".format(lexicon_path))
+
+        return lexicon_path  # Return generate lexicon path
+
+    def _finalize(self, decoded_text):
+        # Reverse decoded text by remove delimiter of sil_token
+        result = "".join(decoded_text).replace(self._sil_token, " ").strip()
+        return result
+
+    def decode(self, hidden_states: torch.Tensor) -> str:
+        assert hidden_states.shape[0] == 1, "Support BatchSize = 1 only."
+        predicts = self._ctc_decoder(hidden_states.to(torch.float32).cpu())
+        result = self._finalize(self._tokenizer.decode(
+            predicts[0][0].tokens))  # Decode top 1 within beam.
+        return result
 
 
 def reference_decoder(tensor: torch.Tensor, tokenizer: Tokenizer):
