@@ -1,3 +1,5 @@
+# Author: guangkun0818 Email: 609946862@qq.com Created on 2023.08.17
+
 # Linux Version 1.12.1
 set(PYTORCH_VERSION "1.13.1")
 set(LIBTORCH_URL

@@ -12,8 +12,8 @@ from parameterized import parameterized
 
 from dataset.utils import TokenizerSetup
 from model.decoding import (reference_decoder, batch_search, CtcGreedyDecoding,
-                            RnntGreedyDecoding, RnntBeamDecoding,
-                            CifGreedyDecoding)
+                            CtcLexiconBeamDecoding, RnntGreedyDecoding,
+                            RnntBeamDecoding, CifGreedyDecoding)
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
 
@@ -222,6 +222,37 @@ class TestCifGreedyDecoding(unittest.TestCase):
         self._decode_session = CifGreedyDecoding(tokenizer=self._tokenzier)
 
     def test_cif_greedy_decoding(self):
+        hidden_states = torch.rand(4, 100, 128)  # (B, T, label_dim)
+        input_lengths = torch.Tensor([23, 80, 100, 64]).long()
+        result = batch_search(hidden_states=hidden_states,
+                              inputs_length=input_lengths,
+                              decode_session=self._decode_session)
+        glog.info(result)
+
+
+class TestCtcLexiconBeamDecoding(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self._tokenzier_config = {
+            "type": "subword",
+            "config": {
+                "spm_model": "sample_data/spm/tokenizer.model",
+                "spm_vocab": "sample_data/spm/tokenizer.vocab"
+            }
+        }
+        self._tokenzier = TokenizerSetup(self._tokenzier_config)
+        self._decode_session_config = {
+            "nbest": 1,
+            "beam_size": 50,
+            "beam_size_token": None,
+            "beam_threshold": 50,
+            "blank_token": "<blank_id>",
+            "sil_token": "<blank_id>",
+        }
+        self._decode_session = CtcLexiconBeamDecoding(
+            tokenizer=self._tokenzier, **self._decode_session_config)
+
+    def test_ctc_lexicon_beam_decoding(self):
         hidden_states = torch.rand(4, 100, 128)  # (B, T, label_dim)
         input_lengths = torch.Tensor([23, 80, 100, 64]).long()
         result = batch_search(hidden_states=hidden_states,
