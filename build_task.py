@@ -21,6 +21,7 @@ import callbacks.callbacks as callbacks
 from tools.model_average import model_average
 from tools.spm_train import spm_training_preprocess
 
+from cif_task import CifTask
 from ctc_task import CtcTask
 from rnnt_task import RnntTask, CtcHybridRnnt, PrunedRnntTask
 from ssl_task import SslTask
@@ -39,6 +40,7 @@ class TaskFactory(Enum):
     CTC_Hybrid_Rnnt = CtcHybridRnnt
     Pruned_Rnnt = PrunedRnntTask
     SSL = SslTask
+    CIF = CifTask
 
 
 def run_task():

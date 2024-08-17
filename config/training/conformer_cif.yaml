@@ -1,0 +1,146 @@
+# Demo training config of Conformer + CIF
+
+task:
+  type: "CIF"
+  name: "conformer-subword-cif"
+  export_path: "tasks/debug"
+
+tokenizer:
+  type: "subword"
+  config:
+    spm_model: "sample_data/spm/tokenizer.model"
+    spm_vocab: "sample_data/spm/tokenizer.vocab"
+  apply_train: false
+
+dataset:
+  train_data: "sample_data/asr_train_data.json"
+  eval_data: "sample_data/asr_eval_data.json"
+  noise_data: "sample_data/noise_data.json"
+  apply_segment: false
+  dur_min_filter: 0.1
+  dur_max_filter: 60.0
+  batch_size: 16
+  use_bucket_sampler: true
+  bucket_sampler_config:
+    num_bucket: 30
+    key: "duration"
+    min_batch_size: 16
+    volume_threshold: 300.0
+  
+  feat_type: "fbank"
+  feat_config:
+    num_mel_bins: 80
+    frame_length: 25
+    frame_shift: 10
+    dither: 0.0
+    samplerate: 16000
+  
+  data_aug_config:
+    use_speed_perturb: true
+    use_spec_aug: true
+    use_add_noise: true
+    add_noise_proportion: 0.5
+    add_noise_config:
+      min_snr_db: 10
+      max_snr_db: 50
+      max_gain_db: 300.0
+    use_mix_feats: true
+    mix_feats_proportion: 0.5
+    mix_feats_config:
+      snrs: [10, 20]
+
+encoder:
+  model: "Conformer"
+  config:
+    bn_cmvn: false
+    feats_dim: 80
+    subsampling_rate: 4
+    input_dim: 256
+    num_heads: 4
+    ffn_dim: 2048
+    num_layers: 18
+    depthwise_conv_kernel_size: 31
+    dropout: 0.1
+    use_group_norm: false
+    convolution_first: false
+    output_dim: 256
+
+cif_layer:
+  idim: 256
+  l_pad: 1
+  r_pad: 1
+  dropout: 0.1
+  threshold: 1.0
+  smooth_factor: 1.0
+  noise_threshold: 0.0
+  tail_threshold: 0.45
+
+decoder:
+  model: "Projector"
+  config:
+    input_dim: 256
+    output_dim: 128
+    dropout_p: 0.1
+
+loss:
+  mae_loss_weight: 0.1
+  mae_loss:
+    model: "MaeLoss"
+    config:
+      normalize_length: false
+  aed_loss:
+    model: "MaskedKLDiv" 
+    config:
+      num_classes: 128
+      scale_factor: 1.0
+      label_smoothing: 0.1
+  
+metric:
+  decode_method: "cif_greedy_search"
+
+optim_setup:
+  seperate_lr:
+    apply: true
+    config:
+      encoder_lr: 0.001
+      decoder_lr: 0.001
+      predictor_lr: 0.001
+      joiner_lr: 0.001
+  optimizer:
+    type: "AdamW"
+    config:
+      lr: 0.001
+      weight_decay: 0.0005
+  lr_scheduler:
+    type: "Warmup"
+    config:
+      warmup_steps: 20000
+    step_config:
+      interval: "step"
+      frequency: 1
+
+trainer:
+  accelerator: "gpu" 
+  devices: 1 
+  strategy: "ddp" 
+  precision: "32-true"
+  max_epochs: 20000
+  val_check_interval: 1.0
+  accumulate_grad_batches: 1
+  gradient_clip_val: 5.0
+  gradient_clip_algorithm: "norm"
+  use_distributed_sampler: false
+
+callbacks:
+  model_chkpt_config:
+    monitor: "wer"
+    mode: "min"
+    save_top_k: 10
+  frontend_save: true
+  global_cmvn:
+    apply: true
+    pre_compute_cmvn: null
+
+finetune:
+  base_model: null 
+resume: null
