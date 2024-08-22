@@ -28,6 +28,7 @@ class AbcAsrInference(pl.LightningModule):
 
         self._export_path = infer_config["task"]["export_path"]
         self._testset_config = infer_config["testset"]
+        self._decoding_config = infer_config["decoding"]
 
         # For final metric compute
         self._reference = []
