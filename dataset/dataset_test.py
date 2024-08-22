@@ -11,7 +11,7 @@ from parameterized import parameterized
 from torch.utils.data import DataLoader
 from dataset.dataset import AsrTrainDataset, AsrEvalDataset, AsrTestDataset
 from dataset.dataset import SslTrainDataset, SslEvalDataset
-from dataset.dataset import asr_collate_fn, ssl_collate_fn
+from dataset.dataset import asr_collate_fn, asr_test_collate_fn, ssl_collate_fn
 from dataset.utils import TokenizerSetup
 
 
@@ -202,19 +202,34 @@ class TestAsrTestDataset(unittest.TestCase):
     """ Unittest of Asr test Dataset. """
 
     def setUp(self):
-        self._test_data = "sample_data/asr_eval_data.json"
-        self._frontend = "sample_data/model/frontend.script"
 
-        self._test_dataset = AsrTestDataset(dataset_json=self._test_data,
-                                            frontend=self._frontend)
+        self._config = {
+            "test_data": "sample_data/asr_train_data.json",
+            "batch_size": 24,
+            "testset_config": {
+                "apply_segment": False,
+                "feat_type": "torchscript_fbank",
+                "feat_config": {
+                    "torchscript": "sample_data/model/frontend.script",
+                    "num_mel_bins": 64,
+                },
+            }
+        }
+
+        self._test_dataset = AsrTestDataset(
+            testset_json=self._config["test_data"],
+            testset_config=self._config["testset_config"])
 
     # Batch_size == 1
     def test_asrtest_dataset(self):
         glog.info("Unittest of test_dataset.")
         count = 0
-        dataloader = DataLoader(dataset=self._test_dataset, batch_size=1)
+        dataloader = DataLoader(dataset=self._test_dataset,
+                                batch_size=self._config["batch_size"],
+                                collate_fn=asr_test_collate_fn)
         for i, batch in enumerate(dataloader):
             count += 1
+            glog.info("audio_filepath: {}".format(batch["audio_filepath"]))
             glog.info("feat: {}".format(batch["feat"].shape))
             glog.info("text: {}".format(batch["text"]))
             glog.info(count)
