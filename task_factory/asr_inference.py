@@ -7,6 +7,7 @@
 import abc
 import glog
 import torch
+import torch.distributed as dist
 import pytorch_lightning as pl
 
 from torch.utils.data import DataLoader
@@ -14,7 +15,7 @@ from torch.utils.data.distributed import DistributedSampler
 
 from dataset.utils import TokenizerSetup
 from dataset.frontend.frontend import FeatType
-from dataset.dataset import AsrTestDataset, asr_collate_fn
+from dataset.dataset import AsrTestDataset, asr_test_collate_fn
 from dataset.sampler import DynamicBucketBatchSampler
 from model.utils import word_error_rate
 
@@ -25,13 +26,28 @@ class AbcAsrInference(pl.LightningModule):
     def __init__(self, infer_config) -> None:
         super(AbcAsrInference, self).__init__()
 
-        self._export_path = infer_config["export_path"]
-        self._test_data = infer_config["test_data"]
+        self._export_path = infer_config["task"]["export_path"]
+        self._testset_config = infer_config["testset"]
+
+        # For final metric compute
         self._reference = []
         self._predicton = []
 
     def test_dataloader(self) -> abc.Any:
-        ...
+        """ Set up eval dataloader. """
+
+        dataset = AsrTestDataset(testset_config=self._testset_config)
+        sampler = DistributedSampler(dataset,
+                                     num_replicas=dist.get_world_size(),
+                                     rank=dist.get_rank(),
+                                     shuffle=False,
+                                     drop_last=False)
+        dataloader = DataLoader(dataset=dataset,
+                                sampler=sampler,
+                                collate_fn=asr_test_collate_fn,
+                                batch_size=self._batch_size,
+                                num_workers=4)
+        return dataloader
 
     @abc.abstractmethod
     def test_step(self, batch, batch_idx):
