@@ -3,6 +3,11 @@
 task:
   type: "ctc_inference"
   export_path: "test_logs/debug"
+  train_config: "config/training/conformer_ctc.yaml"
+  chkpt_aver: true
+  aver_best_k: 10
+  descending: false # Specify whether metric of best models is descending or not 
+  chkpt_name: null
 
 testset:
   test_data: "sample_data/asr_train_data.json"
@@ -11,10 +16,15 @@ testset:
     apply_segment: false
     feat_type: "torchscript_fbank"
     feat_config:
-      torchscript: "sample_data/model/frontend.script"
-      num_mel_bins: 64
+      torchscript: "tasks/debug/frontend.script"
+      num_mel_bins: 80
 
 decoding:
   type: "ctc_greedy_decoding"
   config:
     dummy: -1
+
+trainer:
+  accelerator: "gpu" 
+  devices: 1 
+  strategy: "ddp" 
