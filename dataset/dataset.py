@@ -266,16 +266,16 @@ class AsrTestDataset(BaseDataset):
 
     def __init__(
             self,
+            testset_json,
             testset_config,
             dur_min_filter=0.0,
             dur_max_filter=float("inf"),
     ) -> None:
         # Testset should not filter any of the data, set infinite as dur_max_filter factor as deflaut
-        super(AsrTestDataset,
-              self).__init__(dataset_json=testset_config["test_data"],
-                             dur_min_filter=dur_min_filter,
-                             dur_max_filter=dur_max_filter,
-                             noiseset_json=None)
+        super(AsrTestDataset, self).__init__(dataset_json=testset_json,
+                                             dur_min_filter=dur_min_filter,
+                                             dur_max_filter=dur_max_filter,
+                                             noiseset_json=None)
 
         glog.info("Test dataset duration: {}h.".format(
             self.total_duration / 3600, ".2f"))

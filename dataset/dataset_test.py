@@ -204,8 +204,8 @@ class TestAsrTestDataset(unittest.TestCase):
     def setUp(self):
 
         self._config = {
-            "testset": {
-                "test_data": "sample_data/asr_train_data.json",
+            "test_data": "sample_data/asr_train_data.json",
+            "config": {
                 "batch_size": 24,
                 "apply_segment": False,
                 "feat_type": "torchscript_fbank",
@@ -217,16 +217,16 @@ class TestAsrTestDataset(unittest.TestCase):
         }
 
         self._test_dataset = AsrTestDataset(
-            testset_config=self._config["testset"])
+            testset_config=self._config["config"],
+            testset_json=self._config["test_data"])
 
     # Batch_size == 1
     def test_asrtest_dataset(self):
         glog.info("Unittest of test_dataset.")
         count = 0
-        dataloader = DataLoader(
-            dataset=self._test_dataset,
-            batch_size=self._config["testset"]["batch_size"],
-            collate_fn=asr_test_collate_fn)
+        dataloader = DataLoader(dataset=self._test_dataset,
+                                batch_size=self._config["config"]["batch_size"],
+                                collate_fn=asr_test_collate_fn)
         for i, batch in enumerate(dataloader):
             count += 1
             glog.info("audio_filepath: {}".format(batch["audio_filepath"]))
