@@ -51,7 +51,7 @@ def batch_search(hidden_states: torch.Tensor, inputs_length: torch.Tensor,
 class CtcGreedyDecoding(DecodingMethod):
     """ CTC greedy decoding impl """
 
-    def __init__(self, tokenizer: Tokenizer) -> None:
+    def __init__(self, tokenizer: Tokenizer, dummy=-1) -> None:
         super(CtcGreedyDecoding, self).__init__()
 
         self._tokenizer = tokenizer
@@ -180,7 +180,7 @@ def reference_decoder(tensor: torch.Tensor, tokenizer: Tokenizer):
 class CifGreedyDecoding(DecodingMethod):
     """ CIF greedy decoding, Non-autoregressive argmax. """
 
-    def __init__(self, tokenizer: Tokenizer) -> None:
+    def __init__(self, tokenizer: Tokenizer, dummy=-1) -> None:
         super().__init__()
         self._tokenizer = tokenizer
 
