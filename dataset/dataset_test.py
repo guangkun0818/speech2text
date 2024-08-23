@@ -231,6 +231,7 @@ class TestAsrTestDataset(unittest.TestCase):
             count += 1
             glog.info("audio_filepath: {}".format(batch["audio_filepath"]))
             glog.info("feat: {}".format(batch["feat"].shape))
+            glog.info("feat_length: {}".format(batch["feat_length"]))
             glog.info("text: {}".format(batch["text"]))
             glog.info(count)
 

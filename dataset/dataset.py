@@ -310,6 +310,7 @@ class AsrTestDataset(BaseDataset):
         return {
             "audio_filepath": data["audio_filepath"],
             "feat": feat,
+            "feat_length": feat.shape[0],
             "text": data["text"]
         }
 
@@ -321,6 +322,7 @@ def asr_test_collate_fn(raw_batch: List[Dict]) -> Dict:
     batch = {
         "audio_filepath": [],
         "feat": [],
+        "feat_length": [],
         "text": [],
     }
     for data_slice in raw_batch:
@@ -328,11 +330,14 @@ def asr_test_collate_fn(raw_batch: List[Dict]) -> Dict:
 
         batch["audio_filepath"].append(data_slice["audio_filepath"])
         batch["feat"].append(data_slice["feat"])
+        batch["feat_length"].append(data_slice["feat_length"])
         batch["text"].append(data_slice["text"])
 
     batch["feat"] = pad_sequence(batch["feat"],
                                  batch_first=True,
                                  padding_value=0)
+    batch["feat_length"] = torch.Tensor(batch["feat_length"]).long()
+
     return batch
 
 
