@@ -34,17 +34,19 @@ class AbcAsrInference(pl.LightningModule):
         self._test_report = os.path.join(self._export_path,
                                          "test_report_{}".format(curr_time))
 
-        self._testset_config = infer_config["testset"]
+        self._testset_json = infer_config["testset"]["test_data"]
+        self._testset_config = infer_config["testset"]["config"]
         self._decoding_config = infer_config["decoding"]
 
         # For final metric compute
         self._reference = []
         self._predicton = []
 
-    def test_dataloader(self) -> abc.Any:
+    def test_dataloader(self):
         """ Set up eval dataloader. """
 
-        dataset = AsrTestDataset(testset_config=self._testset_config)
+        dataset = AsrTestDataset(testset_config=self._testset_config,
+                                 testset_json=self._testset_json)
         sampler = DistributedSampler(dataset,
                                      num_replicas=dist.get_world_size(),
                                      rank=dist.get_rank(),
@@ -53,7 +55,7 @@ class AbcAsrInference(pl.LightningModule):
         dataloader = DataLoader(dataset=dataset,
                                 sampler=sampler,
                                 collate_fn=asr_test_collate_fn,
-                                batch_size=self._batch_size,
+                                batch_size=self._testset_config["batch_size"],
                                 num_workers=4)
         return dataloader
 
