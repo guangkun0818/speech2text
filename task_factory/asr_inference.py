@@ -4,8 +4,10 @@
 """ Abstract class for different setting asr system inference. 
 """
 
+import os
 import abc
 import glog
+import time
 import torch
 import torch.distributed as dist
 import pytorch_lightning as pl
@@ -26,7 +28,12 @@ class AbcAsrInference(pl.LightningModule):
     def __init__(self, infer_config) -> None:
         super(AbcAsrInference, self).__init__()
 
+        # Setting up export test report
         self._export_path = infer_config["task"]["export_path"]
+        curr_time = time.strftime("%Y%m%d-%H-%M-%S", time.localtime())
+        self._test_report = os.path.join(self._export_path,
+                                         "test_report_{}".format(curr_time))
+
         self._testset_config = infer_config["testset"]
         self._decoding_config = infer_config["decoding"]
 
@@ -54,8 +61,21 @@ class AbcAsrInference(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         ...
 
+    def _export_decoded_results(self, utts, hyps, refs):
+        with open(self._test_report, 'a+') as test_report_f:
+            for utt, hyp, ref in zip(utts, hyps, refs):
+                wer = word_error_rate([hyp], [ref], show_on_screen=False)
+                test_report_f.write("utt: {}\n".format(utt))
+                test_report_f.write("hyp: {}\n".format(hyp))
+                test_report_f.write("ref: {}\n".format(ref))
+                test_report_f.write("wer: {:.3f}\n".format(wer * 100))
+                test_report_f.write("\n")
+
     def on_test_end(self) -> None:
         tot_wer = word_error_rate(self._predicton,
                                   self._reference,
                                   show_on_screen=False)
         glog.info("Total WER: {:.3f}".format(tot_wer * 100))
+
+        with open(self._test_report, 'a+') as test_report_f:
+            test_report_f.write("Total WER: {:.3f}\n".format(tot_wer * 100))
