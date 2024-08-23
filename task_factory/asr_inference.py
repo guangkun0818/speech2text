@@ -26,7 +26,9 @@ class AbcAsrInference(pl.LightningModule):
     """ Base class of asr inference for inherit. """
 
     def __init__(self, infer_config) -> None:
-        super(AbcAsrInference, self).__init__()
+        # NOTE: Remove init of pl.LightningModule from AbcAsrInference,
+        # since AbcAsrInference worked as mixin class and pl.LightningModule will
+        # be inited along with train task through mro.
 
         # Setting up export test report
         self._export_path = infer_config["task"]["export_path"]

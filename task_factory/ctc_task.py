@@ -233,7 +233,7 @@ class CtcInference(AbcAsrInference, CtcTask):
     def __init__(self, infer_config, train_config) -> None:
         # Init wil mro
         super(CtcInference, self).__init__(infer_config=infer_config)
-        super(AbcAsrInference, self).__init__(infer_config=train_config)
+        super(AbcAsrInference, self).__init__(config=train_config)
         self._decoding_sess = DecodingFactory[
             self._decoding_config["type"]].value(
                 tokenizer=self._tokenizer, **self._decoding_config["config"])
@@ -248,7 +248,7 @@ class CtcInference(AbcAsrInference, CtcTask):
         log_probs = F.log_softmax(decoder_out, dim=-1)
 
         decoded_texts = batch_search(log_probs,
-                                     decoder_out,
+                                     decoder_out_length,
                                      decode_session=self._decoding_sess)
 
         self._export_decoded_results(batch["audio_filepath"], decoded_texts,
