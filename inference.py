@@ -17,6 +17,7 @@ import pytorch_lightning as pl
 from enum import Enum
 
 from task_factory.ctc_task import CtcInference
+from task_factory.rnnt_task import RnntInference
 from tools.model_average import model_average
 
 FLAGS = gflags.FLAGS
@@ -28,6 +29,8 @@ gflags.DEFINE_string("inference_config", "config/debug_yaml",
 class InferenceFactory(Enum):
     """ Task Factory, build selected task from config """
     ctc_inference = CtcInference
+    rnnt_inference = RnntInference
+    ctc_hybrid_rnnt_inference = RnntInference
 
 
 def run_inference():
