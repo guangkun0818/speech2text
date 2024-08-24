@@ -17,7 +17,7 @@ import pytorch_lightning as pl
 from enum import Enum
 
 from task_factory.ctc_task import CtcInference
-from task_factory.rnnt_task import RnntInference
+from task_factory.rnnt_task import RnntInference, PrunedRnntInference
 from tools.model_average import model_average
 
 FLAGS = gflags.FLAGS
@@ -31,6 +31,7 @@ class InferenceFactory(Enum):
     ctc_inference = CtcInference
     rnnt_inference = RnntInference
     ctc_hybrid_rnnt_inference = RnntInference
+    pruned_rnnt_inference = PrunedRnntInference
 
 
 def run_inference():
