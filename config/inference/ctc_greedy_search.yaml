@@ -1,4 +1,4 @@
-# Demo inference config of CTC task
+# Demo inference config of CTC inference with greedy search
 
 task:
   type: "ctc_inference"
@@ -12,7 +12,7 @@ task:
 testset:
   test_data: "sample_data/asr_train_data.json"
   config:
-    batch_size: 24
+    batch_size: 23
     apply_segment: false
     feat_type: "torchscript_fbank"
     feat_config:
