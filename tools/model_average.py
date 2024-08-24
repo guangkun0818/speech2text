@@ -23,6 +23,9 @@ def _topk_chkpt_pool(latest_chkpt, num_aver, descending=False):
             chkpt_pool.append(
                 tuple([pt, latest_chkpt["callbacks"][k]["best_k_models"][pt]]))
 
+    # NOTE: If checkpointing by monitoring wer, descending is False, which means
+    # best chkpt corresponded with lower wer. If checkpointing by monitoring acc, like
+    # in ssl task or other classify task, vice versa descending should be True.
     chkpt_pool.sort(key=lambda x: x[1], reverse=descending)
     if num_aver is not None:
         return chkpt_pool[:num_aver]  # Return topK chkpts for average
