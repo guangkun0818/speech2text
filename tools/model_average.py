@@ -25,7 +25,7 @@ def _topk_chkpt_pool(latest_chkpt, num_aver, descending=False):
 
     # NOTE: If checkpointing by monitoring wer, descending is False, which means
     # best chkpt corresponded with lower wer. If checkpointing by monitoring acc, like
-    # in ssl task or other classify task, vice versa descending should be True.
+    # in ssl task or other classify task, descending should be True ,vice versa.
     chkpt_pool.sort(key=lambda x: x[1], reverse=descending)
     if num_aver is not None:
         return chkpt_pool[:num_aver]  # Return topK chkpts for average
@@ -33,9 +33,9 @@ def _topk_chkpt_pool(latest_chkpt, num_aver, descending=False):
         return chkpt_pool  # Return all stored chkpts for average
 
 
-def model_average(chkpt_dir, aver_best_k, descending=False) -> None:
+def model_average(chkpt_dir, aver_best_k=None, descending=False) -> None:
     # Average all saved chkpts ensuring stable performance.
-    glog.info("Checkpoint average specified, with aver_best_k if {}.".format(
+    glog.info("Checkpoint average specified, with aver_best_k of {}.".format(
         aver_best_k))
     assert os.path.exists(chkpt_dir)
     if os.path.exists(os.path.join(chkpt_dir, "averaged.chkpt")):
