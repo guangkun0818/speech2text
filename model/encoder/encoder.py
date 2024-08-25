@@ -32,17 +32,13 @@ class Encoder(nn.Module):
         # Encoder will foward logits only, which is output right before log softmax
         return self.encoder(x, lengths)
 
-    # Inference model set at the encoder top interface
     @torch.inference_mode(mode=True)
-    def non_streaming_inference(self, x: torch.Tensor):
-        """ Inference graph interface, Non-streaming """
-        return self.encoder.non_streaming_inference(x)
-
-    @torch.inference_mode(mode=True)
-    def simu_streaming_inference(self, x: torch.Tensor, config=None):
-        """ Inference graph interface, simulated streaming """
-        if hasattr(self.encoder, "simu_streaming_inference"):
-            # Config of streaming inference should be provided
-            return self.encoder.simu_streaming_inference(x, config)
+    def streaming_forward(self, x: torch.Tensor, length: torch.Tensor,
+                          **config):
+        """ Streaming forward interface for inference. """
+        if hasattr(self.encoder, "streaming_forward"):
+            return self.encoder.streaming_forward(x, length, **config)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                "{} encoder does not support streaming_forward".format(
+                    self.encoder.__class__.__name__))
