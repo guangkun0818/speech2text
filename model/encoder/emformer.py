@@ -9,8 +9,10 @@ import dataclasses
 import torch
 import torchaudio
 import torch.nn as nn
+import torch.nn.functional as F
 
 from typing import Optional, Tuple, List
+from torch.nn.utils.rnn import pad_sequence
 
 # Borrow subsampling layer from Conformer Encoder
 from model.encoder.conformer import Subsampling
@@ -124,3 +126,42 @@ class Emformer(nn.Module):
         dummy_lengths = torch.tensor([x.shape[1]]).to(x.device).to(torch.int32)
         output, _ = self.forward(x, dummy_lengths)
         return output
+
+    def streaming_forward(self,
+                          x: torch.Tensor,
+                          length: torch.Tensor,
+                          chunk_size=20):
+        """ Streaming forward impl for inference. """
+        self._infer_chunk_size = chunk_size
+        outputs = []
+        outputs_length = []
+
+        for entry_id in range(length.shape[0]):
+            # Iter over batch.
+            output_chunks = []
+            actual_l = length[entry_id].item()
+            states = self.init_state()
+            feats = x[entry_id:entry_id + 1, :, :]
+
+            for i in range(0, actual_l, self._infer_chunk_size):
+                # Feat chunk = [:, chunk_size, :]
+                feats_chunk = feats[:, i * self._infer_chunk_size:self.
+                                    _infer_chunk_size * (i + 1), :]
+                if feats_chunk.shape[1] != self._infer_chunk_size:
+                    # If residual chunk less than infer chunk size, padding 0 ta rear.
+                    residual = self._infer_chunk_size - feats_chunk.shape[1]
+                    feats_chunk = F.pad(feats_chunk, (0, 0, 0, residual),
+                                        value=0)
+
+                chunk_out, states = self.streaming_step(feats_chunk, states)
+                output_chunks.append(chunk_out)
+
+            output_chunks = torch.concat(output_chunks, dim=1).squeeze(
+                0)  # [(1, out_chunk_size, D)] -> (T, D)
+            outputs.append(output_chunks)
+            outputs_length.append(output_chunks.shape[0])
+
+        # Pad output over all batch
+        outputs = pad_sequence(outputs, batch_first=True, padding_value=0)
+        outputs_length = torch.LongTensor(outputs_length)
+        return outputs, outputs_length

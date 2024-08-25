@@ -101,6 +101,20 @@ class TestEmformer(unittest.TestCase):
             # Precision check for streaming step
             self.assertTrue(torch.allclose(ts_stream_output, pt_stream_output))
 
+    def test_emformer_streaming_forward(self):
+        # Unittest of Emformer forward
+        feats = torch.rand(3, 128, 80)
+        lengths = torch.Tensor([64, 128, 80]).to(torch.int32)
+
+        output, out_lengths = self._emformer.streaming_forward(feats,
+                                                               lengths,
+                                                               chunk_size=22)
+        glog.info("Streaming forward output shape: {}".format(output.shape))
+        glog.info("Streaming forward out Lengths: {}".format(out_lengths))
+
+        # Output length check.
+        self.assertEqual(output.shape[1], max(out_lengths))
+
 
 if __name__ == "__main__":
     unittest.main()
