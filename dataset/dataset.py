@@ -13,6 +13,7 @@ import torchaudio
 from typing import Dict, List
 from torch.utils.data import Dataset
 from torch.utils.data import Sampler
+from torch.nn.utils.rnn import pad_sequence
 
 import dataset.frontend.data_augmentation as data_augmentation
 import dataset.utils as utils
@@ -265,20 +266,23 @@ class AsrTestDataset(BaseDataset):
 
     def __init__(
             self,
-            dataset_json,
-            frontend,
+            testset_json,
+            testset_config,
             dur_min_filter=0.0,
             dur_max_filter=float("inf"),
     ) -> None:
         # Testset should not filter any of the data, set infinite as dur_max_filter factor as deflaut
-        super(AsrTestDataset, self).__init__(
-            dataset_json=dataset_json,
-            dur_min_filter=dur_min_filter,
-            dur_max_filter=dur_max_filter,
-        )
+        super(AsrTestDataset, self).__init__(dataset_json=testset_json,
+                                             dur_min_filter=dur_min_filter,
+                                             dur_max_filter=dur_max_filter,
+                                             noiseset_json=None)
 
-        # Load TorchScript frontend graph to initialize featrue extraction session
-        self._frontend_sess = torch.jit.load(frontend)
+        glog.info("Test dataset duration: {}h.".format(
+            self.total_duration / 3600, ".2f"))
+
+        self._testset_config = testset_config
+        self._compute_feature = FeatType[testset_config["feat_type"]].value(
+            **testset_config["feat_config"])
 
     def __getitem__(self, index):
         """ Return:
@@ -290,10 +294,51 @@ class AsrTestDataset(BaseDataset):
         assert "audio_filepath" in data
         assert "text" in data
 
-        pcm, framerate = torchaudio.load(data["audio_filepath"], normalize=True)
-        feat = self._frontend_sess(pcm)
+        # Apply segmentation on origin audio, quite slow not recommend.
+        frame_offset, num_frames = self.compute_offset(
+            start=data["segment"][0], end=data["segment"]
+            [1]) if self._testset_config["apply_segment"] else 0, -1
 
-        return {"feat": feat, "text": data["text"]}
+        pcm, framerate = torchaudio.load(
+            data["audio_filepath"],
+            frame_offset=frame_offset,
+            num_frames=num_frames,
+            normalize=self._compute_feature.pcm_normalize)
+
+        feat = self._compute_feature(pcm)
+
+        return {
+            "audio_filepath": data["audio_filepath"],
+            "feat": feat,
+            "feat_length": feat.shape[0],
+            "text": data["text"]
+        }
+
+
+def asr_test_collate_fn(raw_batch: List[Dict]) -> Dict:
+    """ Batching and Padding sequence right before output, 
+        implement for train, eval 
+    """
+    batch = {
+        "audio_filepath": [],
+        "feat": [],
+        "feat_length": [],
+        "text": [],
+    }
+    for data_slice in raw_batch:
+        # Reorganize batch data as Map
+
+        batch["audio_filepath"].append(data_slice["audio_filepath"])
+        batch["feat"].append(data_slice["feat"])
+        batch["feat_length"].append(data_slice["feat_length"])
+        batch["text"].append(data_slice["text"])
+
+    batch["feat"] = pad_sequence(batch["feat"],
+                                 batch_first=True,
+                                 padding_value=0)
+    batch["feat_length"] = torch.Tensor(batch["feat_length"]).long()
+
+    return batch
 
 
 class SslTrainDataset(BaseDataset):

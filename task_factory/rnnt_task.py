@@ -28,6 +28,9 @@ from model.loss.loss import Loss
 from model.utils import AsrMetric, AsrMetricConfig
 from optimizer.optim_setup import OptimSetup
 
+from task_factory.asr_inference import AbcAsrInference
+from model.decoding import DecodingFactory, batch_search
+
 
 class BaseRnntTask(pl.LightningModule):
     """ Base Rnnt task setting, custom-designed Rnnt task should inherited 
@@ -637,3 +640,137 @@ class PrunedRnntTask(BaseRnntTask):
                 **self._optim_config["lr_scheduler"]["step_config"]
             }
         }
+
+
+class RnntInference(AbcAsrInference, BaseRnntTask):
+    """ Rnnt task inference, shared with RnntTask and CtcHybridRnnt """
+
+    def __init__(self, infer_config, train_config) -> None:
+        # Init wil mro
+        super(RnntInference, self).__init__(infer_config=infer_config)
+        super(AbcAsrInference, self).__init__(config=train_config)
+
+        self._decoding_type = self._decoding_config["type"]
+        self._use_rnnt = self._decoding_type.startswith(
+            "rnnt")  # Specify whether use rnnt decoding.
+
+        if self._use_rnnt:
+            # Specify using rnnt decoding.
+            self._decoding_sess = DecodingFactory[
+                self._decoding_config["type"]].value(
+                    tokenizer=self._tokenizer,
+                    predictor=self._predictor,
+                    joiner=self._joiner,
+                    **self._decoding_config["config"])
+        else:
+            self._decoding_sess = DecodingFactory[
+                self._decoding_config["type"]].value(
+                    tokenizer=self._tokenizer,
+                    **self._decoding_config["config"])
+
+        # NOTE: Specify whether using streaming forward of encoder, since streaming
+        # impl of Rnnt-based asr system usually subjects to encoder setting.
+        self._streaming_config = infer_config["streaming"]
+        self._is_encoder_streaming = self._streaming_config[
+            "is_encoder_streaming"]
+        if self._is_encoder_streaming:
+            self._enc_streaming_setting = self._streaming_config[
+                "encoder_streaming_setting"]
+
+    def test_step(self, batch, batch_idx):
+        feat = self._global_cmvn(batch["feat"])
+
+        if self._is_encoder_streaming:
+            encoder_out, encoder_out_length = self._encoder.streaming_forward(
+                feat, batch["feat_length"], **self._enc_streaming_setting)
+        else:
+            encoder_out, encoder_out_length = self._encoder(
+                feat, batch["feat_length"])
+
+        if self._use_rnnt:
+            # Use enc_out if rnnt specified.
+            decoded_texts = batch_search(encoder_out,
+                                         encoder_out_length,
+                                         decode_session=self._decoding_sess)
+        else:
+            # Use dec_out as ctc logits.
+            decoder_out, decoder_out_length = self._decoder(
+                encoder_out, encoder_out_length)
+            log_probs = F.log_softmax(decoder_out, dim=-1)
+            decoded_texts = batch_search(log_probs,
+                                         decoder_out_length,
+                                         decode_session=self._decoding_sess)
+
+        self._export_decoded_results(batch["audio_filepath"], decoded_texts,
+                                     batch["text"])
+        self._predicton += decoded_texts
+        self._reference += batch["text"]
+
+
+class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
+    """ Pruned Rnnt task inference """
+
+    def __init__(self, infer_config, train_config) -> None:
+        # Init wil mro
+        super(PrunedRnntInference, self).__init__(infer_config=infer_config)
+        super(AbcAsrInference, self).__init__(config=train_config)
+
+        self._decoding_type = self._decoding_config["type"]
+        self._use_rnnt = self._decoding_type.startswith(
+            "rnnt")  # Specify whether use rnnt decoding.
+
+        if self._use_rnnt:
+            # Specify using rnnt decoding.
+            self._decoding_sess = DecodingFactory[
+                self._decoding_config["type"]].value(
+                    tokenizer=self._tokenizer,
+                    predictor=self._predictor,
+                    joiner=self._joiner,
+                    **self._decoding_config["config"])
+        else:
+            assert self._enable_ctc, "CTC decoding no available if enable_ctc is false in loss setting."
+            self._decoding_sess = DecodingFactory[
+                self._decoding_config["type"]].value(
+                    tokenizer=self._tokenizer,
+                    **self._decoding_config["config"])
+
+        # NOTE: Specify whether using streaming forward of encoder, since streaming
+        # as Rnnt-based asr system usually subject to encoder setting.
+        self._streaming_config = infer_config["streaming"]
+        self._is_encoder_streaming = self._streaming_config[
+            "is_encoder_streaming"]
+        if self._is_encoder_streaming:
+            self._enc_streaming_setting = self._streaming_config[
+                "encoder_streaming_setting"]
+
+    def test_step(self, batch, batch_idx):
+        feat = self._global_cmvn(batch["feat"])
+
+        if self._is_encoder_streaming:
+            encoder_out, encoder_out_length = self._encoder.streaming_forward(
+                feat, batch["feat_length"], **self._enc_streaming_setting)
+        else:
+            encoder_out, encoder_out_length = self._encoder(
+                feat, batch["feat_length"])
+
+        decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                        encoder_out_length)
+
+        if self._use_rnnt:
+            # Use enc_out if rnnt specified.
+            decoded_texts = batch_search(encoder_out,
+                                         encoder_out_length,
+                                         decode_session=self._decoding_sess)
+        else:
+            # Use dec_out as ctc logits.
+            logits, logits_length = self._ctc_projector(decoder_out,
+                                                        decoder_out_length)
+            log_probs = F.log_softmax(logits, dim=-1)
+            decoded_texts = batch_search(log_probs,
+                                         logits_length,
+                                         decode_session=self._decoding_sess)
+
+        self._export_decoded_results(batch["audio_filepath"], decoded_texts,
+                                     batch["text"])
+        self._predicton += decoded_texts
+        self._reference += batch["text"]

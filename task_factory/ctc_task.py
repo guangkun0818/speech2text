@@ -25,6 +25,9 @@ from model.loss.loss import Loss
 from model.utils import AsrMetric, AsrMetricConfig
 from optimizer.optim_setup import OptimSetup
 
+from task_factory.asr_inference import AbcAsrInference
+from model.decoding import DecodingFactory, batch_search
+
 
 class CtcTask(pl.LightningModule):
     """ Build CTC ASR task from Yaml training config """
@@ -222,3 +225,46 @@ class CtcTask(pl.LightningModule):
                 **self._optim_config["lr_scheduler"]["step_config"]
             }
         }
+
+
+class CtcInference(AbcAsrInference, CtcTask):
+    """ Ctc task inference """
+
+    def __init__(self, infer_config, train_config) -> None:
+        # Init wil mro
+        super(CtcInference, self).__init__(infer_config=infer_config)
+        super(AbcAsrInference, self).__init__(config=train_config)
+        self._decoding_sess = DecodingFactory[
+            self._decoding_config["type"]].value(
+                tokenizer=self._tokenizer, **self._decoding_config["config"])
+
+        # NOTE: Specify whether using streaming forward of encoder, since streaming
+        # impl of CTC-based asr system usually subjects to encoder setting.
+        self._streaming_config = infer_config["streaming"]
+        self._is_encoder_streaming = self._streaming_config[
+            "is_encoder_streaming"]
+        if self._is_encoder_streaming:
+            self._enc_streaming_setting = self._streaming_config[
+                "encoder_streaming_setting"]
+
+    def test_step(self, batch, batch_idx):
+        feat = self._global_cmvn(batch["feat"])
+
+        if self._is_encoder_streaming:
+            encoder_out, encoder_out_length = self._encoder.streaming_forward(
+                feat, batch["feat_length"], **self._enc_streaming_setting)
+        else:
+            encoder_out, encoder_out_length = self._encoder(
+                feat, batch["feat_length"])
+        decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                        encoder_out_length)
+        log_probs = F.log_softmax(decoder_out, dim=-1)
+
+        decoded_texts = batch_search(log_probs,
+                                     decoder_out_length,
+                                     decode_session=self._decoding_sess)
+
+        self._export_decoded_results(batch["audio_filepath"], decoded_texts,
+                                     batch["text"])
+        self._predicton += decoded_texts
+        self._reference += batch["text"]

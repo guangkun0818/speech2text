@@ -8,9 +8,6 @@ import unittest
 import torchaudio
 import torch
 
-from dataset.frontend.frontend import KaldiWaveFeature
-from dataset.frontend.frontend import DummyFrontend
-from dataset.frontend.frontend import LhotseKaldiFeatFbank
 from dataset.frontend.frontend import FeatType
 
 
@@ -69,6 +66,32 @@ class TestLhotseKaldiFeatFbank(unittest.TestCase):
             "feat_type": "lhotes_fbank",
             "feat_config": {
                 "num_mel_bins": 80,
+            },
+        }
+
+        self._frontend = FeatType[self._config["feat_type"]].value(
+            **self._config["feat_config"])
+
+    def test_frontend_wave_feature(self):
+        # Frontend forward unittest
+        pcms, _ = torchaudio.load(self._test_data_1,
+                                  normalize=self._frontend.pcm_normalize)
+        feats = self._frontend(pcms)
+        glog.info("Fbank feature: {}".format(feats.shape))
+        self.assertEqual(feats.shape[-1], self._frontend.feat_dim)
+
+
+class TestTorchScriptKaldiWaveFeature(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self._test_data_1 = "sample_data/data/wavs/251-136532-0007.wav"
+        self._test_data_2 = "sample_data/data/wavs/1462-170138-0015.wav"
+
+        self._config = {
+            "feat_type": "torchscript_fbank",
+            "feat_config": {
+                "torchscript": "sample_data/model/frontend.script",
+                "num_mel_bins": 64,
             },
         }
 

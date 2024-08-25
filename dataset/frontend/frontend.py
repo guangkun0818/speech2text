@@ -117,9 +117,32 @@ class LhotseKaldiFeatFbank(nn.Module):
         return self._extractor.extract(samples=pcm, sampling_rate=16000)
 
 
+class TorchScriptKaldiWaveFeature(nn.Module):
+    """ Torchscript model of KaldiWaveFeature """
+
+    def __init__(self, torchscript: str, num_mel_bins=80) -> None:
+        super(TorchScriptKaldiWaveFeature, self).__init__()
+
+        self._frontend_sess = torch.jit.load(torchscript)
+        self._num_mel_bins = num_mel_bins
+
+    @property
+    def pcm_normalize(self):
+        return True
+
+    @property
+    def feat_dim(self):
+        return self._num_mel_bins
+
+    @torch.no_grad()
+    def forward(self, pcm: torch.Tensor) -> torch.Tensor:
+        return self._frontend_sess(pcm)
+
+
 @unique
 class FeatType(Enum):
     """ Feature pipeline factory """
     pcm = DummyFrontend
     fbank = KaldiWaveFeature
     lhotes_fbank = LhotseKaldiFeatFbank
+    torchscript_fbank = TorchScriptKaldiWaveFeature

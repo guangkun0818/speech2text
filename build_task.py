@@ -21,10 +21,10 @@ import callbacks.callbacks as callbacks
 from tools.model_average import model_average
 from tools.spm_train import spm_training_preprocess
 
-from cif_task import CifTask
-from ctc_task import CtcTask
-from rnnt_task import RnntTask, CtcHybridRnnt, PrunedRnntTask
-from ssl_task import SslTask
+from task_factory.cif_task import CifTask
+from task_factory.ctc_task import CtcTask
+from task_factory.rnnt_task import RnntTask, CtcHybridRnnt, PrunedRnntTask
+from task_factory.ssl_task import SslTask
 
 FLAGS = gflags.FLAGS
 
