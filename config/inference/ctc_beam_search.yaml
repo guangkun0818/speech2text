@@ -28,6 +28,9 @@ decoding:
     beam_threshold: 50
     sil_token: "<blank_id>"
 
+streaming:
+  is_encoder_streaming: false
+
 trainer:
   accelerator: "gpu" 
   devices: 1 

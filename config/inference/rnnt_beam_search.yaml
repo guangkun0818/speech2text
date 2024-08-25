@@ -25,6 +25,9 @@ decoding:
     beam_size: 4
     cutoff_top_k: 4
 
+streaming:
+  is_encoder_streaming: false
+
 trainer:
   accelerator: "gpu" 
   devices: 1 

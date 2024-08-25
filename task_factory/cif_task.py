@@ -286,11 +286,24 @@ class CifInference(AbcAsrInference, CifTask):
             self._decoding_config["type"]].value(
                 tokenizer=self._tokenizer, **self._decoding_config["config"])
 
+        # NOTE: Specify whether using streaming forward of encoder, since streaming
+        # impl of CIF-based asr system usually subjects to encoder setting.
+        self._streaming_config = infer_config["streaming"]
+        self._is_encoder_streaming = self._streaming_config[
+            "is_encoder_streaming"]
+        if self._is_encoder_streaming:
+            self._enc_streaming_setting = self._streaming_config[
+                "encoder_streaming_setting"]
+
     def test_step(self, batch, batch_idx):
         feat = self._global_cmvn(batch["feat"])
 
-        encoder_out, encoder_out_length = self._encoder(feat,
-                                                        batch["feat_length"])
+        if self._is_encoder_streaming:
+            encoder_out, encoder_out_length = self._encoder.streaming_forward(
+                feat, batch["feat_length"], **self._enc_streaming_setting)
+        else:
+            encoder_out, encoder_out_length = self._encoder(
+                feat, batch["feat_length"])
 
         # CIF/Decoder layer inference for metric, num of token will be predicted through
         # this stage.

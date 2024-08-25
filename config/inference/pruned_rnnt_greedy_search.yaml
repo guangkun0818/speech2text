@@ -24,6 +24,9 @@ decoding:
   config:
     max_token_step: 1
 
+streaming:
+  is_encoder_streaming: false
+
 trainer:
   accelerator: "gpu" 
   devices: 1 
