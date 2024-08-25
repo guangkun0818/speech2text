@@ -27,6 +27,9 @@ from model.loss.loss import Loss
 from model.utils import AsrMetric, AsrMetricConfig
 from optimizer.optim_setup import OptimSetup
 
+from task_factory.asr_inference import AbcAsrInference
+from model.decoding import DecodingFactory, batch_search
+
 
 class BaseCifTask(pl.LightningModule):
     """ Base CIF task impl """
@@ -252,7 +255,7 @@ class CifTask(BaseCifTask):
         acoustic_embeds, cif_peak, token_num_hat, alphas = self._cif_layer(
             encoder_out, encoder_out_length)
         decoder_out, decoder_out_length = self._decoder(acoustic_embeds,
-                                                        batch["label_length"])
+                                                        token_num_hat.long())
 
         glog.info("Evaluating......")
         preds = self._aed_loss.predict(decoder_out)
@@ -270,3 +273,40 @@ class CifTask(BaseCifTask):
             "wer": wer
         }
         self.log_dict(train_info, sync_dist=True, prog_bar=True, logger=True)
+
+
+class CifInference(AbcAsrInference, CifTask):
+    """ CIF task inference """
+
+    def __init__(self, infer_config, train_config) -> None:
+        # Init wil mro
+        super(CifInference, self).__init__(infer_config=infer_config)
+        super(AbcAsrInference, self).__init__(config=train_config)
+        self._decoding_sess = DecodingFactory[
+            self._decoding_config["type"]].value(
+                tokenizer=self._tokenizer, **self._decoding_config["config"])
+
+    def test_step(self, batch, batch_idx):
+        feat = self._global_cmvn(batch["feat"])
+
+        encoder_out, encoder_out_length = self._encoder(feat,
+                                                        batch["feat_length"])
+
+        # CIF/Decoder layer inference for metric, num of token will be predicted through
+        # this stage.
+        acoustic_embeds, cif_peak, token_num_hat, alphas = self._cif_layer(
+            encoder_out, encoder_out_length)
+
+        decoder_out, decoder_out_length = self._decoder(acoustic_embeds,
+                                                        token_num_hat.long())
+
+        log_probs = self._aed_loss.predict(decoder_out)
+
+        decoded_texts = batch_search(log_probs,
+                                     decoder_out_length,
+                                     decode_session=self._decoding_sess)
+
+        self._export_decoded_results(batch["audio_filepath"], decoded_texts,
+                                     batch["text"])
+        self._predicton += decoded_texts
+        self._reference += batch["text"]

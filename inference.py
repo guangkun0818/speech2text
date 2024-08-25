@@ -18,6 +18,7 @@ from enum import Enum
 
 from task_factory.ctc_task import CtcInference
 from task_factory.rnnt_task import RnntInference, PrunedRnntInference
+from task_factory.cif_task import CifInference
 from tools.model_average import model_average
 
 FLAGS = gflags.FLAGS
@@ -32,6 +33,7 @@ class InferenceFactory(Enum):
     rnnt_inference = RnntInference
     ctc_hybrid_rnnt_inference = RnntInference
     pruned_rnnt_inference = PrunedRnntInference
+    cif_inference = CifInference
 
 
 def run_inference():
