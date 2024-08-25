@@ -28,16 +28,13 @@ class Decoder(nn.Module):
         """ Training graph interface """
         return self.decoder(x, length)
 
-    # Inference model set at the decoder top interface
     @torch.inference_mode(mode=True)
-    def non_streaming_inference(self, x: torch.Tensor) -> torch.Tensor:
-        """ Inference graph interface, Non-streaming """
-        return self.decoder.non_streaming_inference(x)
-
-    @torch.inference_mode(mode=True)
-    def simu_streaming_inference(self, x: torch.Tensor, config=None):
-        """ Inference graph interface, simulated streaming"""
-        if hasattr(self.decoder, "simu_streaming_inference"):
-            return self.decoder.simu_streaming_inference(x, config)
+    def streaming_forward(self, x: torch.Tensor, length: torch.Tensor,
+                          **config):
+        """ Streaming forward interface for inference. """
+        if hasattr(self.decoder, "streaming_forward"):
+            return self.decoder.streaming_forward(x, length, **config)
         else:
-            raise NotImplementedError
+            raise NotImplementedError(
+                "{} decoder does not support streaming_forward".format(
+                    self.decoder.__class__.__name__))

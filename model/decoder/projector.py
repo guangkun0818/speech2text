@@ -36,6 +36,14 @@ class Projector(nn.Module):
         output = self._dropout(self._fc(x))
         return output, length
 
+    def streaming_forward(self,
+                          x: torch.Tensor,
+                          length: torch.Tensor,
+                          dummy=-1):
+        """ NOTE: Streaming forward interface. """
+        output = self._dropout(self._fc(x))
+        return output, length
+
     def non_streaming_inference(self, x: torch.Tensor) -> torch.Tensor:
         """ Inference graph interface, Non-streaming """
         output = self._dropout(self._fc(x))

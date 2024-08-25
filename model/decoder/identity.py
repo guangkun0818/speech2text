@@ -37,3 +37,10 @@ class Identity(nn.Module):
             config is just for API compliance.
         """
         return x
+
+    def streaming_forward(self,
+                          x: torch.Tensor,
+                          length: torch.Tensor,
+                          dummy=-1):
+        """ NOTE: Streaming forward interface. """
+        return x, length
