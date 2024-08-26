@@ -3,6 +3,7 @@
 # Created on 2024.04.20
 """ Rnnt-arch ASR task impl. """
 
+import os
 import abc
 import copy
 import glog
@@ -14,6 +15,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torch.distributed.fsdp.wrap import wrap
+from onnxruntime.quantization import quantize_dynamic, QuantType
 
 from dataset.utils import TokenizerSetup
 from dataset.frontend.frontend import FeatType
@@ -742,6 +744,57 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
         if self._is_encoder_streaming:
             self._enc_streaming_setting = self._streaming_config[
                 "encoder_streaming_setting"]
+
+        if "onnx_export" in infer_config["task"]:
+            # NOTE: Specify onnx export, currently only works on zipformer stateless.
+            self._export_onnx = infer_config["task"]["onnx_export"]
+
+    def on_test_start(self) -> None:
+        if self._export_onnx:
+            glog.info("Onnx export specified, export model to {}".format(
+                self._export_path))
+            assert self._encoder_config["model"] == "Zipformer"
+            assert self._predictor_config["model"] == "Stateless"
+            assert self._is_encoder_streaming
+
+            self._tokenizer.export_units(
+                os.path.join(self._export_path, "units.txt"))
+
+            self.cpu()
+            # Encoder onnx export and quant.
+            self._encoder.onnx_export(
+                os.path.join(self._export_path, "encoder.onnx"),
+                **self._enc_streaming_setting)
+            quantize_dynamic(model_input=os.path.join(self._export_path,
+                                                      "encoder.onnx"),
+                             model_output=os.path.join(self._export_path,
+                                                       "encoder_int8.onnx"),
+                             op_types_to_quantize=["MatMul"],
+                             weight_type=QuantType.QInt8)
+
+            # Predictor onnx export and quant
+            self._predictor.onnx_export(
+                os.path.join(self._export_path, "predictor.onnx"))
+            quantize_dynamic(model_input=os.path.join(self._export_path,
+                                                      "predictor.onnx"),
+                             model_output=os.path.join(self._export_path,
+                                                       "predictor_int8.onnx"),
+                             op_types_to_quantize=["MatMul", "Gather"],
+                             weight_type=QuantType.QInt8)
+
+            # Joiner onnx export and quant
+            self._joiner.onnx_export(
+                os.path.join(self._export_path, "joiner.onnx"))
+            quantize_dynamic(model_input=os.path.join(self._export_path,
+                                                      "joiner.onnx"),
+                             model_output=os.path.join(self._export_path,
+                                                       "joiner_int8.onnx"),
+                             op_types_to_quantize=["MatMul"],
+                             weight_type=QuantType.QInt8)
+            self.cuda()  # Move back to device.
+            glog.info("Onnx models exported.")
+        else:
+            glog.info("Onnx models export overrided.")
 
     def test_step(self, batch, batch_idx):
         feat = self._global_cmvn(batch["feat"])
