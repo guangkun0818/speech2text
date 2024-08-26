@@ -102,6 +102,61 @@ class WarmupLR(_LRScheduler):
         self.last_epoch = step
 
 
+class Eden(_LRScheduler):
+    """
+    Eden2 scheduler, simpler than Eden because it does not use the notion of epoch,
+    only batches.
+
+    The basic formula (before warmup) is:
+      lr = base_lr * ((batch**2 + lr_batches**2) / lr_batches**2) ** -0.5) * warmup
+
+    where `warmup` increases from linearly 0.5 to 1 over `warmup_batches` batches
+    and then stays constant at 1.
+
+
+     E.g. suggest base_lr = 0.04 (passed to optimizer) if used with ScaledAdam
+
+    Args:
+        optimizer: the optimizer to change the learning rates on
+        lr_batches: the number of batches after which we start significantly
+              decreasing the learning rate, suggest 5000.
+    """
+
+    def __init__(
+        self,
+        optimizer: torch.optim.Optimizer,
+        lr_batches: Union[int, float],
+        warmup_batches: Union[int, float] = 500.0,
+        warmup_start: float = 0.5,
+        last_epoch: int = -1,
+    ):
+        
+        self.lr_batches = lr_batches
+        self.warmup_batches = warmup_batches
+
+        assert 0.0 <= warmup_start <= 1.0, warmup_start
+        self.warmup_start = warmup_start
+
+        # __init__() must be invoked before setting field
+        # because step() is also invoked in __init__()
+        super().__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        factor = ((self.last_epoch**2 + self.lr_batches**2) /
+                  self.lr_batches**2)**-0.5
+        warmup_factor = (
+            1.0
+            if self.last_epoch >= self.warmup_batches else self.warmup_start +
+            (1.0 - self.warmup_start) * (self.last_epoch / self.warmup_batches)
+            # else 0.5 + 0.5 * (self.batch / self.warmup_batches)
+        )
+
+        return [x * factor * warmup_factor for x in self.base_lrs]
+
+    def set_step(self, step: int):
+        self.last_epoch = step
+
+
 class WarmupPolicy(_LRScheduler):
     """ Adds warmup kwargs and warmup logic to lr policy.
         All arguments should be passed as kwargs for clarity, 
