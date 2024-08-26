@@ -49,7 +49,7 @@ class Encoder(nn.Module):
 
     def onnx_export(self, export_filename, **config):
         if hasattr(self.encoder, "onnx_export"):
-            return self.encoder.onnx_export(export_filename**config)
+            return self.encoder.onnx_export(export_filename, **config)
         else:
             raise NotImplementedError(
                 "{} encoder does not support onnx_export".format(
