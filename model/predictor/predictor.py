@@ -53,3 +53,11 @@ class Predictor(nn.Module):
         output, state_out = self.predictor.streaming_step(input, state)
 
         return output, state_out
+
+    def onnx_export(self, export_filename, **config):
+        if hasattr(self.predictor, "onnx_export"):
+            return self.predictor.onnx_export(export_filename, **config)
+        else:
+            raise NotImplementedError(
+                "{} encoder does not support onnx_export".format(
+                    self.predictor.__class__.__name__))
