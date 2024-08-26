@@ -821,6 +821,7 @@ class Zipformer2(nn.Module):
         )
 
         self._add_meta_data(filename=export_filename, meta_data=meta_data)
+        self.forward = self._restore_forward
 
     def _onnx_export(self, export_filename):
         """ Non streaming zipformer onnx export. """
