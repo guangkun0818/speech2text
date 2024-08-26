@@ -65,6 +65,7 @@ class TestZipformer(unittest.TestCase):
         self._zipformer.chunk_size = [32]
         self._zipformer.left_context_frames = [128]
 
+        # subsampling_rate * chunk_size + pad_len (7 + 2 * 3)
         chunk_feats = torch.rand(1, 77, 80)
         states = self._zipformer.get_init_states()
         outputs, new_states = self._zipformer.streaming_step(

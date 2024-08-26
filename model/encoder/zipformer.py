@@ -608,7 +608,7 @@ class Zipformer2(nn.Module):
         left_context_len = self.left_context_frames[0]
 
         N = x.size(0)
-        T = chunk_size * 2 + self.pad_length
+        T = chunk_size * 2 + self.pad_length  # subsampling_rate * chunk_size + pad_len (7 + 2 * 3)
         x_lens = torch.tensor([T] * N, device=x.device)
 
         cached_embed_left_pad = states[-2]
