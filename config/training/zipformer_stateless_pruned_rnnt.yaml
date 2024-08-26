@@ -1,0 +1,139 @@
+# Demo training config of Conformer/Stateless + Pruned Rnnt
+
+task:
+  type: "Pruned_Rnnt"
+  name: "conformer-subword-rnnt"
+  export_path: "tasks/debug"
+
+tokenizer:
+  type: "subword"
+  config:
+    spm_model: "sample_data/spm/tokenizer.model"
+    spm_vocab: "sample_data/spm/tokenizer.vocab"
+  apply_train: false
+
+dataset:
+  train_data: "sample_data/asr_train_data.json"
+  eval_data: "sample_data/asr_eval_data.json"
+  noise_data: "sample_data/noise_data.json"
+  apply_segment: false
+  dur_min_filter: 0.1
+  dur_max_filter: 60.0
+  batch_size: 16
+  use_bucket_sampler: true
+  bucket_sampler_config:
+    num_bucket: 30
+    key: "duration"
+    min_batch_size: 16
+    volume_threshold: 600.0
+  
+  feat_type: "lhotes_fbank"
+  feat_config:
+    num_mel_bins: 80
+  
+  data_aug_config:
+    use_speed_perturb: true
+    use_spec_aug: true
+    use_add_noise: true
+    add_noise_proportion: 0.5
+    add_noise_config:
+      min_snr_db: 10
+      max_snr_db: 50
+      max_gain_db: 300.0
+    use_mix_feats: true
+    mix_feats_proportion: 0.5
+    mix_feats_config:
+      snrs: [10, 20]
+
+encoder:
+  model: "Zipformer"
+  config:
+    feature_dim: 80
+    downsampling_factor: [1, 2, 4, 8, 4, 2]
+    num_encoder_layers: [2, 2, 2, 2, 2, 2]
+    feedforward_dim: [512, 768, 768, 768, 768, 768]
+    encoder_dim: [192, 256, 256, 256, 256, 256]
+    encoder_unmasked_dim: [192, 192, 192, 192, 192, 192]
+    num_heads: [4, 4, 4, 8, 4, 4]
+    query_head_dim: 32
+    value_head_dim: 12
+    pos_head_dim: 4
+    pos_dim: 48
+    cnn_module_kernel: [31, 31, 15, 15, 15, 31]
+    causal: true
+    chunk_size: [16, 32, 64, -1]
+    left_context_frames: [64, 128, 256, -1]
+    for_ctc: false
+
+decoder:
+  model: "Identity"
+  config:
+    dummy: -1
+
+predictor:
+  model: "Stateless"
+  config:
+    num_symbols: 128 
+    output_dim: 256
+    symbol_embedding_dim: 512
+    context_size: 5
+
+joiner:
+  input_dim: 256
+  output_dim: 128
+  prune_range: 5 # Set prune_range > 0
+
+loss:
+  model: "Pruned_Rnnt"
+  simple_loss_scale: 0.5
+  pruned_loss_scale: 0.5
+  config:
+    termination_symbol: 0  # <blank id> = 0
+    reduction: "mean"
+  enable_ctc: false
+
+metric:
+  decode_method: "rnnt_greedy_search"
+  max_token_step: 1
+
+optim_setup:
+  seperate_lr:
+    apply: false
+  optimizer:
+    type: "ScaledAdam"
+    config:
+      lr: 0.045
+      clipping_scale: 2.0
+  lr_scheduler:
+    type: "Eden"
+    config:
+      lr_batches: 7000
+    step_config:
+      interval: "step"
+      frequency: 1
+
+trainer:
+  accelerator: "gpu" 
+  devices: 1 
+  strategy: "ddp_find_unused_parameters_true" 
+  precision: "32-true"
+  max_epochs: 20000
+  val_check_interval: 1.0
+  accumulate_grad_batches: 1
+  gradient_clip_val: 5.0
+  gradient_clip_algorithm: "norm"
+  use_distributed_sampler: false
+
+callbacks:
+  model_chkpt_config:
+    monitor: "wer"
+    mode: "min"
+    save_top_k: 10
+  frontend_save: false
+  global_cmvn:
+    apply: false
+    pre_compute_cmvn: null
+
+finetune:
+  base_model: null 
+resume: null
