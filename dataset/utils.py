@@ -43,6 +43,11 @@ class Tokenizer(abc.ABC):
         # Decode list of tokens as raw text, used during inference
         ...
 
+    def export_units(self, export_filename: str) -> None:
+        with open(export_filename, 'w') as units_f:
+            for i, unit in enumerate(self.labels):
+                units_f.write("{} {}\n".format(unit, i))
+
     def _text_to_vector(self, text: List[str]) -> torch.Tensor:
         """ Return: torch.Tensor(nums_tokens) """
         vector = []
