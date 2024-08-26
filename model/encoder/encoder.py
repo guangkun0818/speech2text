@@ -9,6 +9,7 @@ import torch.nn as nn
 from model.encoder.conformer import Conformer, ConformerConfig
 from model.encoder.emformer import Emformer, EmformerConfig
 from model.encoder.wav2vec2 import Wav2Vec2CustomizedConfig, Wav2Vec2Encoder
+from model.encoder.zipformer import Zipformer2, Zipformer2Config
 
 
 class Encoder(nn.Module):
@@ -25,6 +26,9 @@ class Encoder(nn.Module):
             self.encoder = Conformer(config=ConformerConfig(**config["config"]))
         elif config["model"] == "Emformer":
             self.encoder = Emformer(config=EmformerConfig(**config["config"]))
+        elif config["model"] == "Zipformer":
+            self.encoder = Zipformer2(config=Zipformer2Config(
+                **config["config"]))
         # TODO: Supporting other models
 
     def forward(self, x: torch.Tensor, lengths: torch.Tensor):
@@ -41,4 +45,12 @@ class Encoder(nn.Module):
         else:
             raise NotImplementedError(
                 "{} encoder does not support streaming_forward".format(
+                    self.encoder.__class__.__name__))
+
+    def onnx_export(self, export_filename, **config):
+        if hasattr(self.encoder, "onnx_export"):
+            return self.encoder.onnx_export(export_filename**config)
+        else:
+            raise NotImplementedError(
+                "{} encoder does not support onnx_export".format(
                     self.encoder.__class__.__name__))

@@ -72,6 +72,18 @@ class TestZipformer(unittest.TestCase):
             chunk_feats, states)
         glog.info(outputs.shape)
 
+    def test_streaming_onnx_export(self):
+        export_filename = "test_logs/streaming_encoder.onnx"
+        self._zipformer.onnx_export(export_filename=export_filename,
+                                    streaming=True,
+                                    chunk_size=[32],
+                                    left_context_frames=[128])
+
+    def test_non_streaming_onnx_export(self):
+        export_filename = "test_logs/encoder.onnx"
+        self._zipformer.onnx_export(export_filename=export_filename,
+                                    streaming=False)
+
 
 if __name__ == "__main__":
     unittest.main()

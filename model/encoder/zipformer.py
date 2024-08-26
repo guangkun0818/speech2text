@@ -661,6 +661,235 @@ class Zipformer2(nn.Module):
 
         return encoder_out, new_states
 
+    def _streaming_onnx_export(self,
+                               export_filename,
+                               chunk_size=[32],
+                               left_context_frames=[128]):
+        """ Onnx export of streaming zipformer """
+        self.train(False)
+        self._restore_forward = self.forward
+        self.forward = self.streaming_step
+
+        # Reset streaming setting
+        self.causal = True
+        self.chunk_size = chunk_size
+        self.left_context_frames = left_context_frames
+        glog.info("Chunk size = {} / Left context frames = {}".format(
+            self.chunk_size, self.left_context_frames))
+
+        decode_chunk_len = self.chunk_size[0] * 2
+        # The encoder_embed subsample features (T - 7) // 2
+        # The ConvNeXt module needs (7 - 1) // 2 = 3 frames of right padding after subsampling
+        pad_length = 7 + 2 * 3
+        T = decode_chunk_len + pad_length
+
+        x = torch.rand(1, T, self._feature_dim, dtype=torch.float32)
+        init_state = self.get_init_states()
+        num_encoders = len(self.encoder_dim)
+        glog.info(f"num_encoders: {num_encoders}")
+        glog.info(f"len(init_state): {len(init_state)}")
+
+        inputs = {}
+        input_names = ["x"]
+
+        outputs = {}
+        output_names = ["encoder_out"]
+
+        def build_inputs_outputs(tensors, i):
+            assert len(tensors) == 6, len(tensors)
+
+            # (downsample_left, batch_size, key_dim)
+            name = f"cached_key_{i}"
+            logging.info(f"{name}.shape: {tensors[0].shape}")
+            inputs[name] = {1: "N"}
+            outputs[f"new_{name}"] = {1: "N"}
+            input_names.append(name)
+            output_names.append(f"new_{name}")
+
+            # (1, batch_size, downsample_left, nonlin_attn_head_dim)
+            name = f"cached_nonlin_attn_{i}"
+            logging.info(f"{name}.shape: {tensors[1].shape}")
+            inputs[name] = {1: "N"}
+            outputs[f"new_{name}"] = {1: "N"}
+            input_names.append(name)
+            output_names.append(f"new_{name}")
+
+            # (downsample_left, batch_size, value_dim)
+            name = f"cached_val1_{i}"
+            logging.info(f"{name}.shape: {tensors[2].shape}")
+            inputs[name] = {1: "N"}
+            outputs[f"new_{name}"] = {1: "N"}
+            input_names.append(name)
+            output_names.append(f"new_{name}")
+
+            # (downsample_left, batch_size, value_dim)
+            name = f"cached_val2_{i}"
+            logging.info(f"{name}.shape: {tensors[3].shape}")
+            inputs[name] = {1: "N"}
+            outputs[f"new_{name}"] = {1: "N"}
+            input_names.append(name)
+            output_names.append(f"new_{name}")
+
+            # (batch_size, embed_dim, conv_left_pad)
+            name = f"cached_conv1_{i}"
+            logging.info(f"{name}.shape: {tensors[4].shape}")
+            inputs[name] = {0: "N"}
+            outputs[f"new_{name}"] = {0: "N"}
+            input_names.append(name)
+            output_names.append(f"new_{name}")
+
+            # (batch_size, embed_dim, conv_left_pad)
+            name = f"cached_conv2_{i}"
+            logging.info(f"{name}.shape: {tensors[5].shape}")
+            inputs[name] = {0: "N"}
+            outputs[f"new_{name}"] = {0: "N"}
+            input_names.append(name)
+            output_names.append(f"new_{name}")
+
+        num_encoder_layers = ",".join(map(str, self.num_encoder_layers))
+        encoder_dims = ",".join(map(str, self.encoder_dim))
+        cnn_module_kernels = ",".join(map(str, self.cnn_module_kernel))
+        ds = self.downsampling_factor
+        left_context_len = self.left_context_frames[0]
+        left_context_len = [left_context_len // k for k in ds]
+        left_context_len = ",".join(map(str, left_context_len))
+        query_head_dims = ",".join(map(str, self.query_head_dim))
+        value_head_dims = ",".join(map(str, self.value_head_dim))
+        num_heads = ",".join(map(str, self.num_heads))
+
+        meta_data = {
+            "model_type": "zipformer2",
+            "version": "1",
+            "model_author": "guangkun0818",
+            "comment": "streaming zipformer2",
+            "decode_chunk_len": str(decode_chunk_len),  # 32
+            "T": str(T),  # 32+7+2*3=45
+            "num_encoder_layers": num_encoder_layers,
+            "encoder_dims": encoder_dims,
+            "cnn_module_kernels": cnn_module_kernels,
+            "left_context_len": left_context_len,
+            "query_head_dims": query_head_dims,
+            "value_head_dims": value_head_dims,
+            "num_heads": num_heads,
+        }
+        glog.info(f"meta_data: {meta_data}")
+
+        for i in range(len(init_state[:-2]) // 6):
+            build_inputs_outputs(init_state[i * 6:(i + 1) * 6], i)
+
+        # (batch_size, channels, left_pad, freq)
+        embed_states = init_state[-2]
+        name = "embed_states"
+        glog.info(f"{name}.shape: {embed_states.shape}")
+        inputs[name] = {0: "N"}
+        outputs[f"new_{name}"] = {0: "N"}
+        input_names.append(name)
+        output_names.append(f"new_{name}")
+
+        # (batch_size,)
+        processed_lens = init_state[-1]
+        name = "processed_lens"
+        glog.info(f"{name}.shape: {processed_lens.shape}")
+        inputs[name] = {0: "N"}
+        outputs[f"new_{name}"] = {0: "N"}
+        input_names.append(name)
+        output_names.append(f"new_{name}")
+
+        glog.info(inputs)
+        glog.info(outputs)
+        glog.info(input_names)
+        glog.info(output_names)
+
+        torch.onnx.export(
+            self,
+            (x, init_state),
+            export_filename,
+            verbose=False,
+            opset_version=13,
+            input_names=input_names,
+            output_names=output_names,
+            dynamic_axes={
+                "x": {
+                    0: "N"
+                },
+                "encoder_out": {
+                    0: "N"
+                },
+                **inputs,
+                **outputs,
+            },
+        )
+
+        self._add_meta_data(filename=export_filename, meta_data=meta_data)
+
+    def _onnx_export(self, export_filename):
+        """ Non streaming zipformer onnx export. """
+        self.causal = False
+        x = torch.zeros(1, 100, 80, dtype=torch.float32)
+        x_lens = torch.tensor([100], dtype=torch.int64)
+
+        torch.onnx.export(
+            self,
+            (x, x_lens),
+            export_filename,
+            verbose=False,
+            opset_version=13,
+            input_names=["x", "x_lens"],
+            output_names=["encoder_out", "encoder_out_lens"],
+            dynamic_axes={
+                "x": {
+                    0: "N",
+                    1: "T"
+                },
+                "x_lens": {
+                    0: "N"
+                },
+                "encoder_out": {
+                    0: "N",
+                    1: "T"
+                },
+                "encoder_out_lens": {
+                    0: "N"
+                },
+            },
+        )
+
+        meta_data = {
+            "model_type": "zipformer2",
+            "version": "1",
+            "model_author": "guangkun0818",
+            "comment": "non-streaming zipformer2",
+        }
+        glog.info(f"meta_data: {meta_data}")
+
+        self._add_meta_data(filename=export_filename, meta_data=meta_data)
+
+    def onnx_export(self,
+                    export_filename,
+                    streaming=True,
+                    chunk_size=[32],
+                    left_context_frames=[128]):
+        """ Onnx export of streaming Zipformer support deploy with sherpa-onnx """
+        if streaming:
+            self._streaming_onnx_export(export_filename=export_filename,
+                                        chunk_size=chunk_size,
+                                        left_context_frames=left_context_frames)
+        else:
+            self._onnx_export(export_filename=export_filename)
+
+    def _add_meta_data(self, filename, meta_data):
+        """ Add meta data to an ONNX model. It is changed in-place.
+            Args: 
+                filename: Filename of the ONNX model to be changed.
+                meta_data: Key-value pairs.
+        """
+        model = onnx.load(filename)
+        for key, value in meta_data.items():
+            meta = model.metadata_props.add()
+            meta.key = key
+            meta.value = value
+        onnx.save(model, filename)
+
 
 def _whitening_schedule(x: float, ratio: float = 2.0) -> ScheduledFloat:
     return ScheduledFloat((0.0, x), (20000.0, ratio * x), default=x)
