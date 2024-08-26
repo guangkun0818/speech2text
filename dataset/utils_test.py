@@ -118,6 +118,10 @@ class TestSubwordTokenizer(unittest.TestCase):
 
         self.assertEqual(text, decoded)
 
+    def test_export_units(self):
+        export_filename = "test_logs/units.txt"
+        self._tokenizer.export_units(export_filename)
+
 
 if __name__ == "__main__":
     unittest.main()

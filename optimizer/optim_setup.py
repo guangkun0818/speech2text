@@ -10,33 +10,11 @@ import torch
 import warnings
 import numpy as np
 
+from enum import Enum, unique
 from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
-
-
-def OptimSetup(config):
-    # Optimizer and Scheduler Setup inferface
-    if config["optimizer"]["type"] == "Adam":
-        optimizer = Adam
-    elif config["optimizer"]["type"] == "AdamW":
-        optimizer = AdamW
-    else:
-        raise ValueError("{} optimizer is not supported.".format(
-            config["optimizer"]["type"]))
-
-    if config["lr_scheduler"]["type"] == "Warmup":
-        lr_scheduler = WarmupLR
-    elif config["lr_scheduler"]["type"] == "Cosine_Annealing":
-        lr_scheduler = CosineAnnealingLR
-    elif config["lr_scheduler"]["type"] == "Cosine_Warmup":
-        lr_scheduler = CosineWarmupScheduler
-    elif config["lr_scheduler"]["type"] == "Noam_Hold_Annealing":
-        lr_scheduler = NoamHoldAnnealing
-    else:
-        raise ValueError("{} lr_scheduler is not supported.".format(
-            config["lr_scheduler"]["type"]))
-    return optimizer, lr_scheduler
+from optimizer.scaled_adam import ScaledAdam
 
 
 class CosineWarmupScheduler(_LRScheduler):
@@ -97,6 +75,61 @@ class WarmupLR(_LRScheduler):
                 min(step_num**-0.5, step_num * self.warmup_steps**-1.5)
                 for lr in self.base_lrs
             ]
+
+    def set_step(self, step: int):
+        self.last_epoch = step
+
+
+class Eden(_LRScheduler):
+    """
+    Eden2 scheduler, simpler than Eden because it does not use the notion of epoch,
+    only batches.
+
+    The basic formula (before warmup) is:
+      lr = base_lr * ((batch**2 + lr_batches**2) / lr_batches**2) ** -0.5) * warmup
+
+    where `warmup` increases from linearly 0.5 to 1 over `warmup_batches` batches
+    and then stays constant at 1.
+
+
+     E.g. suggest base_lr = 0.04 (passed to optimizer) if used with ScaledAdam
+
+    Args:
+        optimizer: the optimizer to change the learning rates on
+        lr_batches: the number of batches after which we start significantly
+              decreasing the learning rate, suggest 5000.
+    """
+
+    def __init__(
+        self,
+        optimizer: torch.optim.Optimizer,
+        lr_batches: Union[int, float],
+        warmup_batches: Union[int, float] = 500.0,
+        warmup_start: float = 0.5,
+        last_epoch: int = -1,
+    ):
+
+        self.lr_batches = lr_batches
+        self.warmup_batches = warmup_batches
+
+        assert 0.0 <= warmup_start <= 1.0, warmup_start
+        self.warmup_start = warmup_start
+
+        # __init__() must be invoked before setting field
+        # because step() is also invoked in __init__()
+        super().__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        factor = ((self.last_epoch**2 + self.lr_batches**2) /
+                  self.lr_batches**2)**-0.5
+        warmup_factor = (
+            1.0
+            if self.last_epoch >= self.warmup_batches else self.warmup_start +
+            (1.0 - self.warmup_start) * (self.last_epoch / self.warmup_batches)
+            # else 0.5 + 0.5 * (self.batch / self.warmup_batches)
+        )
+
+        return [x * factor * warmup_factor for x in self.base_lrs]
 
     def set_step(self, step: int):
         self.last_epoch = step
@@ -326,3 +359,27 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
         lr = (initial_lr * T_warmup_decay) / T_hold_decay
         lr = max(lr, min_lr)
         return lr
+
+
+@unique
+class OptimizerPool(Enum):
+    """ Optimizier pool """
+    Adam = Adam
+    AdamW = AdamW
+    ScaledAdam = ScaledAdam
+
+
+@unique
+class LrSchedulerPool(Enum):
+    """ Lr scheduler pool """
+    Warmup = WarmupLR
+    Cosine_Annealing = CosineAnnealingLR
+    Cosine_Warmup = CosineWarmupScheduler
+    Noam_Hold_Annealing = NoamHoldAnnealing
+    Eden = Eden
+
+
+def OptimSetup(config):
+    # Optimizer and Scheduler Setup inferface
+    return OptimizerPool[config["optimizer"]["type"]].value, LrSchedulerPool[
+        config["lr_scheduler"]["type"]].value
