@@ -1,4 +1,4 @@
-# Demo training config of Conformer/Stateless + Pruned Rnnt
+# Demo training config of Zipformer/Stateless + Pruned Rnnt
 
 task:
   type: "Pruned_Rnnt"
