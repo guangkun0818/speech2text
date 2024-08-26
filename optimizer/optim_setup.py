@@ -10,33 +10,11 @@ import torch
 import warnings
 import numpy as np
 
+from enum import Enum, unique
 from torch.optim import Adam, AdamW
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
-
-
-def OptimSetup(config):
-    # Optimizer and Scheduler Setup inferface
-    if config["optimizer"]["type"] == "Adam":
-        optimizer = Adam
-    elif config["optimizer"]["type"] == "AdamW":
-        optimizer = AdamW
-    else:
-        raise ValueError("{} optimizer is not supported.".format(
-            config["optimizer"]["type"]))
-
-    if config["lr_scheduler"]["type"] == "Warmup":
-        lr_scheduler = WarmupLR
-    elif config["lr_scheduler"]["type"] == "Cosine_Annealing":
-        lr_scheduler = CosineAnnealingLR
-    elif config["lr_scheduler"]["type"] == "Cosine_Warmup":
-        lr_scheduler = CosineWarmupScheduler
-    elif config["lr_scheduler"]["type"] == "Noam_Hold_Annealing":
-        lr_scheduler = NoamHoldAnnealing
-    else:
-        raise ValueError("{} lr_scheduler is not supported.".format(
-            config["lr_scheduler"]["type"]))
-    return optimizer, lr_scheduler
+from optimizer.scaled_adam import ScaledAdam
 
 
 class CosineWarmupScheduler(_LRScheduler):
@@ -130,7 +108,7 @@ class Eden(_LRScheduler):
         warmup_start: float = 0.5,
         last_epoch: int = -1,
     ):
-        
+
         self.lr_batches = lr_batches
         self.warmup_batches = warmup_batches
 
@@ -381,3 +359,27 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
         lr = (initial_lr * T_warmup_decay) / T_hold_decay
         lr = max(lr, min_lr)
         return lr
+
+
+@unique
+class OptimizerPool(Enum):
+    """ Optimizier pool """
+    Adam = Adam
+    AdamW = AdamW
+    ScaledAdam = ScaledAdam
+
+
+@unique
+class LrSchedulerPool(Enum):
+    """ Lr scheduler pool """
+    Warmup = WarmupLR
+    Cosine_Annealing = CosineAnnealingLR
+    Cosine_Warmup = CosineWarmupScheduler
+    Noam_Hold_Annealing = NoamHoldAnnealing
+    Eden = Eden
+
+
+def OptimSetup(config):
+    # Optimizer and Scheduler Setup inferface
+    return OptimizerPool[config["optimizer"]["type"]].value, LrSchedulerPool[
+        config["lr_scheduler"]["type"]].value
