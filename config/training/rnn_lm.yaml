@@ -16,14 +16,14 @@ dataset:
   train_data: "sample_data/asr_train_data.json"
   eval_data: "sample_data/asr_eval_data.json"
   token_min_filter: 2
-  token_max_filter: 200
+  token_max_filter: 2000
   batch_size: 256
   use_bucket_sampler: true
   bucket_sampler_config:
     num_bucket: 30
     key: "num_tokens"
     min_batch_size: 16
-    volume_threshold: 3000.0
+    volume_threshold: 30000
 
 nnlm:
   num_symbols: 128
@@ -51,7 +51,7 @@ optim_setup:
   lr_scheduler:
     type: "Warmup"
     config:
-      warmup_steps: 200
+      warmup_steps: 2000
     step_config:
       interval: "step"
       frequency: 1
