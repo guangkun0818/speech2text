@@ -53,6 +53,9 @@ class NnLmTask(pl.LightningModule):
             token_min_filter=self._dataset_config["token_min_filter"],
             token_max_filter=self._dataset_config["token_max_filter"],
             tokenizer=self._tokenizer)
+        glog.info("Train dataset total tokens: {}.".format(
+            dataset.total_data_amount))
+
         sampler = DistributedSampler(dataset,
                                      num_replicas=dist.get_world_size(),
                                      rank=dist.get_rank(),
@@ -84,6 +87,9 @@ class NnLmTask(pl.LightningModule):
             token_min_filter=self._dataset_config["token_min_filter"],
             token_max_filter=self._dataset_config["token_max_filter"],
             tokenizer=self._tokenizer)
+        glog.info("Eval dataset total tokens: {}.".format(
+            dataset.total_data_amount))
+
         sampler = DistributedSampler(dataset,
                                      num_replicas=dist.get_world_size(),
                                      rank=dist.get_rank(),

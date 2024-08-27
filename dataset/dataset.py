@@ -515,7 +515,7 @@ class LmDataset(Dataset):
                     "token_max_filter": higher bound of text length.
         """
         super(LmDataset, self).__init__()
-        self._total_num_tokens = 0.0
+        self._total_num_tokens = 0
         self._min_token_num = float("inf")
         self._max_token_num = -float("inf")
         self._tokenizer = tokenizer
