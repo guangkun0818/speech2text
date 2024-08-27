@@ -11,7 +11,9 @@ from parameterized import parameterized
 from torch.utils.data import DataLoader
 from dataset.dataset import AsrTrainDataset, AsrEvalDataset, AsrTestDataset
 from dataset.dataset import SslTrainDataset, SslEvalDataset
-from dataset.dataset import asr_collate_fn, asr_test_collate_fn, ssl_collate_fn
+from dataset.dataset import LmDataset
+from dataset.dataset import (asr_collate_fn, asr_test_collate_fn,
+                             ssl_collate_fn, lm_collate_fn)
 from dataset.utils import TokenizerSetup
 
 
@@ -70,9 +72,9 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
 
     def test_dataset_info(self):
         glog.info("Total duration: {}".format(
-            self._train_dataset.total_duration))
-        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
-        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+            self._train_dataset.total_data_amount))
+        glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
+        glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
     # Batch_size from 40/101/341
     @parameterized.expand([(40,), (101,), (341,)])
@@ -161,9 +163,9 @@ class TestAsrPcmCharDataset(unittest.TestCase):
 
     def test_dataset_info(self):
         glog.info("Total duration: {}".format(
-            self._train_dataset.total_duration))
-        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
-        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+            self._train_dataset.total_data_amount))
+        glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
+        glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
     # Batch_size from 40/101/341
     @parameterized.expand([(40,), (101,), (341,)])
@@ -278,9 +280,9 @@ class TestSslTrainEvalDataset(unittest.TestCase):
 
     def test_dataset_info(self):
         glog.info("Total duration: {}".format(
-            self._train_dataset.total_duration))
-        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
-        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+            self._train_dataset.total_data_amount))
+        glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
+        glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
     # Batch_size from 40/101/341
     @parameterized.expand([(40,), (101,), (341,)])
@@ -312,6 +314,53 @@ class TestSslTrainEvalDataset(unittest.TestCase):
             glog.info("auged_feat: {}".format(batch["auged_feat"].shape))
             glog.info("feat_length: {}".format(batch["feat_length"]))
             self.assertEqual(batch["raw_feat"].shape, batch["auged_feat"].shape)
+            glog.info(count)
+
+
+class TestLmDataset(unittest.TestCase):
+    """ Unittest of Lm Dataset """
+
+    def setUp(self) -> None:
+        self._tokenizer_config = {
+            "type": "subword",
+            "config": {
+                "spm_model": "sample_data/spm/tokenizer.model",
+                "spm_vocab": "sample_data/spm/tokenizer.vocab"
+            }
+        }
+
+        self._dataset_config = {
+            "train_data": "sample_data/asr_train_data.json",
+            "eval_data": "sample_data/asr_eval_data.json",
+            "token_min_filter": 1,
+            "token_max_filter": 200,
+            "batch_size": 256,
+        }
+        self._tokenzier = TokenizerSetup(self._tokenizer_config)
+        self._train_dataset = LmDataset(
+            dataset_json=self._dataset_config["train_data"],
+            token_min_filter=self._dataset_config["token_min_filter"],
+            token_max_filter=self._dataset_config["token_max_filter"],
+            tokenizer=self._tokenzier)
+
+    def test_dataset_info(self):
+        glog.info("Total num tokens: {}".format(
+            self._train_dataset.total_data_amount))
+        glog.info("Min token num: {}".format(self._train_dataset.lower_bound))
+        glog.info("Max token num: {}".format(self._train_dataset.high_bound))
+
+    # Batch_size from 40/101/341
+    @parameterized.expand([(40,), (101,), (341,)])
+    def test_train_dataset(self, batch_size):
+        glog.info("Unittest of train_dataset, fbank and subword specified.")
+        count = 0
+        dataloader = DataLoader(dataset=self._train_dataset,
+                                batch_size=batch_size,
+                                collate_fn=lm_collate_fn)
+        for i, batch in enumerate(dataloader):
+            count += 1
+            glog.info("text: {}".format(batch["text"].shape))
+            glog.info("text_length: {}".format(batch["text_length"]))
             glog.info(count)
 
 

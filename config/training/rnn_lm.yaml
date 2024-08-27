@@ -1,0 +1,83 @@
+# Demo training config of Conformer/LSTM + Pruned Rnnt
+
+task:
+  type: "NNLM"
+  name: "rnnlm-subword"
+  export_path: "tasks/debug"
+
+tokenizer:
+  type: "subword"
+  config:
+    spm_model: "sample_data/spm/tokenizer.model"
+    spm_vocab: "sample_data/spm/tokenizer.vocab"
+  apply_train: false
+
+dataset:
+  train_data: "sample_data/asr_train_data.json"
+  eval_data: "sample_data/asr_eval_data.json"
+  token_min_filter: 2
+  token_max_filter: 2000
+  batch_size: 256
+  use_bucket_sampler: true
+  bucket_sampler_config:
+    num_bucket: 30
+    key: "num_tokens"
+    min_batch_size: 16
+    volume_threshold: 30000
+
+nnlm:
+  num_symbols: 128
+  symbol_embedding_dim: 512
+  num_rnn_layer: 3
+  dropout: 0.0
+  bidirectional: false
+
+loss:
+  model: "MaskedKLDiv" 
+  config:
+    num_classes: 128
+    scale_factor: 1.0
+    label_smoothing: 0.1 
+
+metric:
+  top_ks: [1, 5]
+
+optim_setup:
+  optimizer:
+    type: "AdamW"
+    config:
+      lr: 0.001
+      weight_decay: 0.0005
+  lr_scheduler:
+    type: "Warmup"
+    config:
+      warmup_steps: 2000
+    step_config:
+      interval: "step"
+      frequency: 1
+
+trainer:
+  accelerator: "gpu" 
+  devices: 1 
+  strategy: "ddp" 
+  precision: "32-true"
+  max_epochs: 2000
+  val_check_interval: 1.0
+  accumulate_grad_batches: 1
+  gradient_clip_val: 5.0
+  gradient_clip_algorithm: "norm"
+  use_distributed_sampler: false
+
+callbacks:
+  model_chkpt_config:
+    monitor: "top_5_acc"
+    mode: "max"
+    save_top_k: 10
+  frontend_save: false
+  global_cmvn:
+    apply: false
+    pre_compute_cmvn: null
+
+finetune:
+  base_model: null 
+resume: null

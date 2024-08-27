@@ -25,6 +25,7 @@ from task_factory.cif_task import CifTask
 from task_factory.ctc_task import CtcTask
 from task_factory.rnnt_task import RnntTask, CtcHybridRnnt, PrunedRnntTask
 from task_factory.ssl_task import SslTask
+from task_factory.nnlm_task import NnLmTask
 
 FLAGS = gflags.FLAGS
 
@@ -41,6 +42,7 @@ class TaskFactory(Enum):
     Pruned_Rnnt = PrunedRnntTask
     SSL = SslTask
     CIF = CifTask
+    NNLM = NnLmTask
 
 
 def run_task():

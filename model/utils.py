@@ -190,3 +190,16 @@ class SslMetric(object):
             metrics["top_{}_acc".format(k)] = self._compute_acc(
                 logits=logits, labels=labels, masked_dim=masked_dim, top_k=k)
         return metrics
+
+
+@dataclasses.dataclass
+class NnLmMetricConfig(SslMetricConfig):
+    """ Config of NnLm Metrics, Top_k acc. same as ssl task. """
+    ...
+
+
+class NnLmMetric(SslMetric):
+    """ Wrapped for nnlm task. """
+
+    def __init__(self, config: NnLmMetricConfig):
+        super().__init__(config)

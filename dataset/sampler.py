@@ -32,8 +32,8 @@ class DynamicBucketBatchSampler(BatchSampler):
         self._dataset = dataset
         self._volume_threshold = volume_threshold
         self._create_bucket(num_bucket=num_bucket,
-                            low_bound=self._dataset.min_duration,
-                            high_bound=self._dataset.max_duration)
+                            low_bound=self._dataset.lower_bound,
+                            high_bound=self._dataset.high_bound)
         assert hasattr(dataset, "fetch_data_k_info")
 
     def _create_bucket(self, num_bucket, low_bound, high_bound):
@@ -92,5 +92,5 @@ class DynamicBucketBatchSampler(BatchSampler):
         """
 
         return math.ceil(
-            math.ceil(self._dataset.total_duration / self.sampler.num_replicas)
-            / self._volume_threshold)
+            math.ceil(self._dataset.total_data_amount /
+                      self.sampler.num_replicas) / self._volume_threshold)

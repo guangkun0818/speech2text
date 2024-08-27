@@ -86,15 +86,15 @@ class BaseDataset(Dataset):
         return frame_offset, num_frames
 
     @property
-    def min_duration(self):
+    def lower_bound(self):
         return self._min_duration
 
     @property
-    def max_duration(self):
+    def high_bound(self):
         return self._max_duration
 
     @property
-    def total_duration(self):
+    def total_data_amount(self):
         return self._total_duration
 
     def __len__(self):
@@ -118,7 +118,7 @@ class AsrTrainDataset(BaseDataset):
                              noiseset_json=config["noise_data"])
 
         glog.info("Train dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._tokenizer = tokenizer
@@ -219,7 +219,7 @@ class AsrEvalDataset(BaseDataset):
                              noiseset_json=None)
 
         glog.info("Eval dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._tokenizer = tokenizer
@@ -278,7 +278,7 @@ class AsrTestDataset(BaseDataset):
                                              noiseset_json=None)
 
         glog.info("Test dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._testset_config = testset_config
         self._compute_feature = FeatType[testset_config["feat_type"]].value(
@@ -358,7 +358,7 @@ class SslTrainDataset(BaseDataset):
                              noiseset_json=config["noise_data"])
 
         glog.info("Train dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._compute_feature = FeatType[config["feat_type"]].value(
@@ -460,7 +460,7 @@ class SslEvalDataset(BaseDataset):
                              dur_max_filter=config["dur_max_filter"],
                              noiseset_json=None)
         glog.info("Eval dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._compute_feature = FeatType[config["feat_type"]].value(
@@ -496,6 +496,121 @@ class SslEvalDataset(BaseDataset):
             "auged_feat": feat,
             "feat_length": feat.shape[0],
         }
+
+
+class LmDataset(Dataset):
+    """ Dataset for NnLm task """
+
+    def __init__(
+        self,
+        dataset_json,
+        token_min_filter,
+        token_max_filter,
+        tokenizer: utils.Tokenizer,
+    ) -> None:
+        """ Args:
+                config: Yaml config of dataset:
+                    "dataset_json": JSON file of train data, same as NeMo.
+                    "token_min_filter": lower bound of text length.
+                    "token_max_filter": higher bound of text length.
+        """
+        super(LmDataset, self).__init__()
+        self._total_num_tokens = 0
+        self._min_token_num = float("inf")
+        self._max_token_num = -float("inf")
+        self._tokenizer = tokenizer
+
+        self._dataset = self._make_dataset_from_json(dataset_json,
+                                                     token_min_filter,
+                                                     token_max_filter)
+
+    def _make_dataset_from_json(self, json_file, token_min_filter,
+                                token_max_filter):
+        """ Make Dataset list from JSON file """
+        datamap = []
+        with open(json_file, 'r') as json_f:
+            for line in json_f:
+                data_infos = json.loads(line)
+                data_infos["tokens"] = self._tokenizer.encode(
+                    data_infos["text"])
+                data_infos["num_tokens"] = data_infos["tokens"].shape[0]
+                if token_min_filter <= data_infos[
+                        "num_tokens"] <= token_max_filter:
+                    datamap.append(data_infos)
+                    self._total_num_tokens += data_infos["num_tokens"]
+                    self._min_token_num = min(self._min_token_num,
+                                              data_infos["num_tokens"])
+                    self._max_token_num = max(self._max_token_num,
+                                              data_infos["num_tokens"])
+        return datamap
+
+    def fetch_data_k_info(self, idx, k):
+        """ Fetch data info with key and idx, for bucket sampling.
+            Args:
+                idx: int, Original dataset index
+                key: str, info key within single data entry
+            return:
+                Any.
+        """
+        return self._dataset[idx][k]
+
+    @property
+    def total_data_amount(self):
+        return self._total_num_tokens
+
+    @property
+    def lower_bound(self):
+        return self._min_token_num
+
+    @property
+    def lower_bound(self):
+        return self._min_token_num
+
+    @property
+    def high_bound(self):
+        return self._max_token_num
+
+    def __len__(self):
+        """ Overwrite __len__ """
+        return len(self._dataset)
+
+    def __getitem__(self, index):
+        """ Return: {
+                "raw_feat": Tensor.float(T, D),
+                "auged_feat": Tensor.float(T, D),
+                "feat_length": int
+            }
+        """
+        data = self._dataset[index]
+
+        return {
+            "text": data["tokens"],
+            "text_length": data["num_tokens"],
+        }
+
+
+def lm_collate_fn(raw_batch: List[Dict]) -> Dict:
+    """ Batching and Padding sequence right before output, 
+        implement for train, eval 
+    """
+    batch = {
+        "text": [],
+        "text_length": [],
+    }
+    for data_slice in raw_batch:
+        # Reorganize batch data as Map
+        glog.check("text" in data_slice.keys())
+        glog.check("text_length" in data_slice.keys())
+
+        batch["text"].append(data_slice["text"])
+        batch["text_length"].append(data_slice["text_length"])
+
+    batch["text"] = pad_sequence(batch["text"],
+                                 batch_first=True,
+                                 padding_value=0)
+    batch["text_length"] = torch.Tensor(batch["text_length"]).long()
+
+    return batch
 
 
 def asr_collate_fn(raw_batch: List[Dict]) -> Dict:
