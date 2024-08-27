@@ -38,6 +38,16 @@ class UnittestRnnLm(unittest.TestCase):
         glog.info(outputs.shape)
         glog.info(outputs_length)
 
+    def test_rnn_lm_score(self):
+        vocab_size = self._config["num_symbols"]
+        batch_size = 256
+
+        x_lens = torch.randint(1, 400, (batch_size,))
+        x = torch.randint(1, vocab_size, (256, int(x_lens.max())))
+
+        scores = self._rnn_lm.score(x, x_lens)
+        glog.info(scores)
+
 
 if __name__ == "__main__":
     unittest.main()

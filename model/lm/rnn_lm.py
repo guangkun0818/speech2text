@@ -6,8 +6,11 @@
 import dataclasses
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from typing import Tuple
+
+from model.functions.masking import make_non_pad_mask
 
 
 @dataclasses.dataclass
@@ -50,3 +53,15 @@ class RnnLm(nn.Module):
         x, _ = self._rnn_layer(x)
         x = self._logits_layer(x)
         return x, x_lens
+
+    @torch.inference_mode(mode=True)
+    def score(self, tokens: torch.Tensor, tokens_length: torch.Tensor):
+        logits, tokens_length = self.forward(tokens, tokens_length)
+        log_probs = F.log_softmax(logits, dim=-1)
+
+        tgt_log_probs = log_probs[:, :-1].gather(
+            2, tokens[:, 1:].unsqueeze(2)).squeeze(2)  # (B, T)
+        tgt_masks = make_non_pad_mask(tokens_length - 1)
+
+        scores = torch.sum(tgt_log_probs * tgt_masks, dim=-1)
+        return scores
