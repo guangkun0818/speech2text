@@ -607,7 +607,7 @@ def lm_collate_fn(raw_batch: List[Dict]) -> Dict:
 
     batch["text"] = pad_sequence(batch["text"],
                                  batch_first=True,
-                                 padding_value=-1)
+                                 padding_value=0)
     batch["text_length"] = torch.Tensor(batch["text_length"]).long()
 
     return batch
