@@ -48,6 +48,17 @@ class UnittestRnnLm(unittest.TestCase):
         scores = self._rnn_lm.score(x, x_lens)
         glog.info(scores)
 
+    def test_rnn_lm_score_step(self):
+        vocab_size = self._config["num_symbols"]
+        beam_size = 4
+        states = self._rnn_lm.init_states(beam_size)
+
+        tokens = torch.randint(1, vocab_size, (beam_size,))
+
+        log_probs, states = self._rnn_lm.score_step(tokens, states)
+        glog.info(log_probs.shape)
+        self.assertEqual(log_probs.shape[1], vocab_size)
+
 
 if __name__ == "__main__":
     unittest.main()

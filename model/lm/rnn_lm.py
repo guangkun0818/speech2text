@@ -47,6 +47,16 @@ class RnnLm(nn.Module):
         self._logits_layer = nn.Linear(in_features=self._embedding_dim,
                                        out_features=self._num_symbols)
 
+    def init_states(self, beam_size):
+        # Initialize rnn cache when streaming inference start. Batch size = beam_size which
+        # corresponding to decoding setting within asr_system.
+        # LSTM cache: Tuple[torch.Tensor, torch.Tensor]
+        states = (torch.zeros(self._num_rnn_layer, beam_size,
+                              self._embedding_dim),
+                  torch.zeros(self._num_rnn_layer, beam_size,
+                              self._embedding_dim))  # h_0, c_0
+        return states
+
     def forward(self, x: torch.Tensor,
                 x_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         x = self._embedding(x)
@@ -56,6 +66,13 @@ class RnnLm(nn.Module):
 
     @torch.inference_mode(mode=True)
     def score(self, tokens: torch.Tensor, tokens_length: torch.Tensor):
+        """ Score on whole sequence. 
+            Args:
+                tokens: (B, T) Tokenized text sequence.
+                tokens_length: (B) Corresponding valid sequence length.
+            Returns:
+                scores: (B) Sum of log_probs
+        """
         logits, tokens_length = self.forward(tokens, tokens_length)
         log_probs = F.log_softmax(logits, dim=-1)
 
@@ -65,3 +82,19 @@ class RnnLm(nn.Module):
 
         scores = torch.sum(tgt_log_probs * tgt_masks, dim=-1)
         return scores
+
+    @torch.inference_mode(mode=True)
+    def score_step(self, tokens: torch.Tensor, states):
+        """ Score on coming token within beam. 
+            Args:
+                tokens: (beam_size)
+                states: (h_0, c_0) states within LSTM
+            Returns:
+                scores: (beam_size, vocab_size) log_probs
+        """
+        x = self._embedding(tokens.unsqueeze(-1))
+        x, states = self._rnn_layer(x, states)
+        logits = self._logits_layer(x)
+        log_probs = F.log_softmax(logits, dim=-1).squeeze(1)
+
+        return log_probs, states
