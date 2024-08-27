@@ -86,15 +86,15 @@ class BaseDataset(Dataset):
         return frame_offset, num_frames
 
     @property
-    def min_duration(self):
+    def lower_bound(self):
         return self._min_duration
 
     @property
-    def max_duration(self):
+    def high_bound(self):
         return self._max_duration
 
     @property
-    def total_duration(self):
+    def total_data_amount(self):
         return self._total_duration
 
     def __len__(self):
@@ -118,7 +118,7 @@ class AsrTrainDataset(BaseDataset):
                              noiseset_json=config["noise_data"])
 
         glog.info("Train dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._tokenizer = tokenizer
@@ -219,7 +219,7 @@ class AsrEvalDataset(BaseDataset):
                              noiseset_json=None)
 
         glog.info("Eval dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._tokenizer = tokenizer
@@ -278,7 +278,7 @@ class AsrTestDataset(BaseDataset):
                                              noiseset_json=None)
 
         glog.info("Test dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._testset_config = testset_config
         self._compute_feature = FeatType[testset_config["feat_type"]].value(
@@ -358,7 +358,7 @@ class SslTrainDataset(BaseDataset):
                              noiseset_json=config["noise_data"])
 
         glog.info("Train dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._compute_feature = FeatType[config["feat_type"]].value(
@@ -460,7 +460,7 @@ class SslEvalDataset(BaseDataset):
                              dur_max_filter=config["dur_max_filter"],
                              noiseset_json=None)
         glog.info("Eval dataset duration: {}h.".format(
-            self.total_duration / 3600, ".2f"))
+            self.total_data_amount / 3600, ".2f"))
 
         self._dataset_config = config
         self._compute_feature = FeatType[config["feat_type"]].value(

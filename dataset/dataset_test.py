@@ -72,9 +72,9 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
 
     def test_dataset_info(self):
         glog.info("Total duration: {}".format(
-            self._train_dataset.total_duration))
-        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
-        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+            self._train_dataset.total_data_amount))
+        glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
+        glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
     # Batch_size from 40/101/341
     @parameterized.expand([(40,), (101,), (341,)])
@@ -163,9 +163,9 @@ class TestAsrPcmCharDataset(unittest.TestCase):
 
     def test_dataset_info(self):
         glog.info("Total duration: {}".format(
-            self._train_dataset.total_duration))
-        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
-        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+            self._train_dataset.total_data_amount))
+        glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
+        glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
     # Batch_size from 40/101/341
     @parameterized.expand([(40,), (101,), (341,)])
@@ -280,9 +280,9 @@ class TestSslTrainEvalDataset(unittest.TestCase):
 
     def test_dataset_info(self):
         glog.info("Total duration: {}".format(
-            self._train_dataset.total_duration))
-        glog.info("Min duration: {}".format(self._train_dataset.min_duration))
-        glog.info("Max duration: {}".format(self._train_dataset.max_duration))
+            self._train_dataset.total_data_amount))
+        glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
+        glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
     # Batch_size from 40/101/341
     @parameterized.expand([(40,), (101,), (341,)])
