@@ -155,13 +155,20 @@ class StatelessPredictor(nn.Module):
         # Predictor init model.
         self.forward = self.init_state
         # Args is required by onnx export, set as empty for init
-        torch.onnx.export(self,
-                          args=(),
-                          f=init_model_filename,
-                          verbose=True,
-                          opset_version=13,
-                          input_names=None,
-                          output_names=["states"])
+        torch.onnx.export(
+            self,
+            args=(),
+            f=init_model_filename,
+            verbose=True,
+            opset_version=13,
+            input_names=None,
+            output_names=["states"],
+            dynamic_axes={
+                "states": {
+                    0: "N"
+                },
+            },
+        )
 
         # Predictor streaming_step model.
         self.forward = self.streaming_step
@@ -170,13 +177,29 @@ class StatelessPredictor(nn.Module):
         batch_size = 10
         prev_states = self.init_state(batch_size)
         pred_in = torch.randint(1, 128, (batch_size, 1))  # (B, 1)
-        torch.onnx.export(self,
-                          args=(pred_in, prev_states),
-                          f=streaming_step_model_filename,
-                          verbose=True,
-                          opset_version=13,
-                          input_names=["pred_in", "prev_states"],
-                          output_names=["pred_out", "next_states"])
+        torch.onnx.export(
+            self,
+            args=(pred_in, prev_states),
+            f=streaming_step_model_filename,
+            verbose=True,
+            opset_version=13,
+            input_names=["pred_in", "prev_states"],
+            output_names=["pred_out", "next_states"],
+            dynamic_axes={
+                "pred_in": {
+                    0: "N"
+                },
+                "prev_states": {
+                    0: "N"
+                },
+                "pred_out": {
+                    0: "N"
+                },
+                "next_states": {
+                    0: "N"
+                },
+            },
+        )
 
         self.forward = self._restore_forward  # Restore forward method
 
