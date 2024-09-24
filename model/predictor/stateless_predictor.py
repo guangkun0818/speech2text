@@ -5,6 +5,7 @@
     https://arxiv.org/pdf/2109.07513
 """
 
+import os
 import dataclasses
 import torch
 import onnx
@@ -125,7 +126,7 @@ class StatelessPredictor(nn.Module):
 
     @torch.jit.export
     @torch.inference_mode(mode=True)
-    def onnx_streaming_step(self, input: torch.Tensor):
+    def sherpa_onnx_streaming_step(self, input: torch.Tensor):
         # Wrapped forward for Onnx export
         assert input.shape[1] == self._context_size
 
@@ -135,11 +136,56 @@ class StatelessPredictor(nn.Module):
         output = self._output_linear(output).squeeze(1)
         return output  # Output (B, D)
 
-    def onnx_export(self, export_filename):
-        """ Export Onnx model support deploy with sherpa-onnx """
+    def onnx_export(self, export_path, for_mnn=True, for_sherpa=True):
+        """ Interface for onnx export. """
+        if for_sherpa:
+            self._sherpa_onnx_export(export_path=export_path)
+        if for_mnn:
+            self._mnn_onnx_export(export_path=export_path)
+
+    def _mnn_onnx_export(self, export_path):
+        """ Export Onnx model support deploy with mnn deploy, predictor seperated into init model 
+            and streaming_step model respectivly.
+        """
+
+        init_model_filename = os.path.join(export_path, "predictor_init.onnx")
         self.train(False)
         self._restore_forward = self.forward  # Restore forward when export done.
-        self.forward = self.onnx_streaming_step
+
+        # Predictor init model.
+        self.forward = self.init_state
+        # Args is required by onnx export, set as empty for init
+        torch.onnx.export(self,
+                          args=(),
+                          f=init_model_filename,
+                          verbose=True,
+                          opset_version=13,
+                          input_names=None,
+                          output_names=["states"])
+
+        # Predictor streaming_step model.
+        self.forward = self.streaming_step
+        streaming_step_model_filename = os.path.join(
+            export_path, "predictor_streaming_step.onnx")
+        batch_size = 10
+        prev_states = self.init_state(batch_size)
+        pred_in = torch.randint(1, 128, (batch_size, 1))  # (B, 1)
+        torch.onnx.export(self,
+                          args=(pred_in, prev_states),
+                          f=streaming_step_model_filename,
+                          verbose=True,
+                          opset_version=13,
+                          input_names=["pred_in", "prev_states"],
+                          output_names=["pred_out", "next_states"])
+
+        self.forward = self._restore_forward  # Restore forward method
+
+    def _sherpa_onnx_export(self, export_path):
+        """ Export Onnx model support deploy with sherpa-onnx """
+        export_filename = os.path.join(export_path, "predictor.onnx")
+        self.train(False)
+        self._restore_forward = self.forward  # Restore forward when export done.
+        self.forward = self.sherpa_onnx_streaming_step
         ctx_size = self._context_size
         vocab_size = self._num_symbols
 
