@@ -154,14 +154,15 @@ class StatelessPredictor(nn.Module):
 
         # Predictor init model.
         self.forward = self.init_state
+        beam_size = 10
         # Args is required by onnx export, set as empty for init
         torch.onnx.export(
             self,
-            args=(),
+            args=beam_size,
             f=init_model_filename,
             verbose=True,
             opset_version=13,
-            input_names=None,
+            input_names=["beam_size"],
             output_names=["states"],
             dynamic_axes={
                 "states": {
