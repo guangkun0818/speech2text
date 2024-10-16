@@ -85,12 +85,17 @@ class TestJoiner(unittest.TestCase):
         self.assertEqual(next_token_logits.shape[0], beam_size)
         self.assertEqual(next_token_logits.shape[1], 1000)
 
-    def test_joiner_onnx_export(self):
+    def test_joiner_sherpa_onnx_export(self):
         # Unittest of joiner onnx export
-        export_file = "test_logs/joiner.onnx"
+        export_file = "test_logs"
         glog.info("Num of params: {}".format(
             sum(param.numel() for param in self._pruned_joiner.parameters())))
-        self._pruned_joiner.onnx_export(export_file)
+        self._pruned_joiner._sherpa_onnx_export(export_file)
+
+    def test_joiner_mnn_onnx_export(self):
+        # Unittest of joiner onnx export for mnn
+        export_file = "test_logs"
+        self._pruned_joiner._mnn_onnx_export(export_file)
 
 
 if __name__ == "__main__":
