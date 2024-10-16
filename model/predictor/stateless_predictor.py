@@ -147,7 +147,8 @@ class StatelessPredictor(nn.Module):
         """ Export Onnx model support deploy with mnn deploy, predictor seperated into init model 
             and streaming_step model respectivly.
         """
-
+        # TODO(guangkun0810): Deprecate predictor init model in mnn deploy, Since it causes coredump
+        # when generate tensor with dynamic shape as init state does.
         init_model_filename = os.path.join(export_path, "predictor_init.onnx")
         self.train(False)
         self._restore_forward = self.forward  # Restore forward when export done.
