@@ -16,7 +16,7 @@ class TestStatelessPredictor(unittest.TestCase):
 
     def setUp(self) -> None:
         self._config = {
-            "num_symbols": 1000,
+            "num_symbols": 128,
             "output_dim": 256,
             "symbol_embedding_dim": 512,
             "context_size": 5
