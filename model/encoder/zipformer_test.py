@@ -31,7 +31,7 @@ class TestZipformer(unittest.TestCase):
             "causal": True,
             "chunk_size": [16, 32, 64, -1],
             "left_context_frames": [64, 128, 256, -1],
-            "for_ctc": True,
+            "for_ctc": False,
             "num_tokens": 1000
         }
         self._zipformer = Zipformer2(config=Zipformer2Config(**self._config))
@@ -73,14 +73,15 @@ class TestZipformer(unittest.TestCase):
         glog.info(outputs.shape)
 
     def test_streaming_onnx_export(self):
-        export_filename = "test_logs/streaming_encoder.onnx"
+        export_filename = "test_logs/streaming_zipformer.onnx"
         self._zipformer.onnx_export(export_filename=export_filename,
                                     streaming=True,
+                                    using_dynamic_axe=False,
                                     chunk_size=[32],
                                     left_context_frames=[128])
 
     def test_non_streaming_onnx_export(self):
-        export_filename = "test_logs/encoder.onnx"
+        export_filename = "test_logs/zipformer.onnx"
         self._zipformer.onnx_export(export_filename=export_filename,
                                     streaming=False)
 
