@@ -156,7 +156,7 @@ class StatelessPredictor(nn.Module):
         # Predictor init model.
         self.forward = self.init_state
         beam_size = 10
-        # Args is required by onnx export, set as empty for init
+        # Args is required by onnx export, set as empty for init. Disable dynamic axe for mnn shape inference.
         torch.onnx.export(
             self,
             args=beam_size,
@@ -165,11 +165,6 @@ class StatelessPredictor(nn.Module):
             opset_version=13,
             input_names=["beam_size"],
             output_names=["states"],
-            dynamic_axes={
-                "states": {
-                    0: "N"
-                },
-            },
         )
 
         # Predictor streaming_step model.
@@ -179,6 +174,7 @@ class StatelessPredictor(nn.Module):
         batch_size = 10
         prev_states = self.init_state(batch_size)
         pred_in = torch.randint(1, 128, (batch_size, 1))  # (B, 1)
+        # Disable dynamic axe for mnn shape inference.
         torch.onnx.export(
             self,
             args=(pred_in, prev_states),
@@ -187,20 +183,6 @@ class StatelessPredictor(nn.Module):
             opset_version=13,
             input_names=["pred_in", "prev_states"],
             output_names=["pred_out", "next_states"],
-            dynamic_axes={
-                "pred_in": {
-                    0: "N"
-                },
-                "prev_states": {
-                    0: "N"
-                },
-                "pred_out": {
-                    0: "N"
-                },
-                "next_states": {
-                    0: "N"
-                },
-            },
         )
 
         self.forward = self._restore_forward  # Restore forward method
