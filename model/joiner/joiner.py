@@ -241,6 +241,7 @@ class Joiner(nn.Module):
         enc_out = torch.rand(1, 1, input_dim, dtype=torch.float32)
         pred_out = torch.rand(beam_size, 1, input_dim, dtype=torch.float32)
 
+        # Disable dynamic axe for mnn shape inference.
         torch.onnx.export(
             self,
             (enc_out, pred_out),
@@ -249,14 +250,6 @@ class Joiner(nn.Module):
             opset_version=13,
             input_names=["enc_out", "pred_out"],
             output_names=["logit"],
-            dynamic_axes={
-                "pred_out": {
-                    0: "N"
-                },
-                "logit": {
-                    0: "N"
-                },
-            },
         )
 
         self.forward = self._restore_forward  # Restore forward method
