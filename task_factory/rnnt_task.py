@@ -746,13 +746,16 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
                 "encoder_streaming_setting"]
 
         if "onnx_export" in infer_config["task"]:
-            # NOTE: Specify onnx export, currently only works on zipformer stateless.
+            assert "onnx_export_config" in infer_config, "Provide onnx_export_config if onnx_export is True."
             self._export_onnx = infer_config["task"]["onnx_export"]
+            self._export_onnx_config = infer_config["onnx_export_config"]
 
     def on_test_start(self) -> None:
         if self._export_onnx:
             glog.info("Onnx export specified, export model to {}".format(
                 self._export_path))
+            # NOTE: Specify onnx export, currently only works on streaming zipformer
+            # stateless. More system to be exportable in the future maybe.
             assert self._encoder_config["model"] == "Zipformer"
             assert self._predictor_config["model"] == "Stateless"
             assert self._is_encoder_streaming
@@ -761,36 +764,45 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
                 os.path.join(self._export_path, "units.txt"))
 
             self.cpu()
-            # Encoder onnx export and quant.
+            # Encoder onnx export
             self._encoder.onnx_export(
-                os.path.join(self._export_path, "encoder.onnx"),
-                **self._enc_streaming_setting)
-            quantize_dynamic(model_input=os.path.join(self._export_path,
-                                                      "encoder.onnx"),
-                             model_output=os.path.join(self._export_path,
-                                                       "encoder_int8.onnx"),
-                             op_types_to_quantize=["MatMul"],
-                             weight_type=QuantType.QInt8)
-
-            # Predictor onnx export and quant
+                self._export_path,
+                **self._export_onnx_config["onnx_encoder_config"])
+            # Predictor onnx export
             self._predictor.onnx_export(
-                os.path.join(self._export_path, "predictor.onnx"))
-            quantize_dynamic(model_input=os.path.join(self._export_path,
-                                                      "predictor.onnx"),
-                             model_output=os.path.join(self._export_path,
-                                                       "predictor_int8.onnx"),
-                             op_types_to_quantize=["MatMul", "Gather"],
-                             weight_type=QuantType.QInt8)
-
-            # Joiner onnx export and quant
+                self._export_path,
+                **self._export_onnx_config["onnx_predictor_config"])
+            # Joienr onnx export
             self._joiner.onnx_export(
-                os.path.join(self._export_path, "joiner.onnx"))
-            quantize_dynamic(model_input=os.path.join(self._export_path,
-                                                      "joiner.onnx"),
-                             model_output=os.path.join(self._export_path,
-                                                       "joiner_int8.onnx"),
-                             op_types_to_quantize=["MatMul"],
-                             weight_type=QuantType.QInt8)
+                self._export_path,
+                **self._export_onnx_config["onnx_joiner_config"])
+
+            if self._export_onnx_config["export_int8"]:
+                # NOTE: Export quantized int8 model for sherp-onnx deploy. If for mnn-speech2text,
+                # leave it to https://github.com/guangkun0818/mnn-speech2text/blob/main/mnn-convert.sh
+                quantize_dynamic(
+                    model_input=os.path.join(self._export_path, "encoder.onnx"),
+                    model_output=os.path.join(self._export_path,
+                                              "encoder_int8.onnx"),
+                    op_types_to_quantize=["MatMul"],
+                    weight_type=QuantType.QInt8)
+
+                quantize_dynamic(
+                    model_input=os.path.join(self._export_path,
+                                             "predictor.onnx"),
+                    model_output=os.path.join(self._export_path,
+                                              "predictor_int8.onnx"),
+                    op_types_to_quantize=["MatMul", "Gather"],
+                    weight_type=QuantType.QInt8)
+
+                # Joiner onnx export and quant
+
+                quantize_dynamic(
+                    model_input=os.path.join(self._export_path, "joiner.onnx"),
+                    model_output=os.path.join(self._export_path,
+                                              "joiner_int8.onnx"),
+                    op_types_to_quantize=["MatMul"],
+                    weight_type=QuantType.QInt8)
             self.cuda()  # Move back to device.
             glog.info("Onnx models exported.")
         else:
