@@ -229,8 +229,7 @@ class Joiner(nn.Module):
 
     def _mnn_onnx_export(self, export_path):
         """ Export Onnx model support deploy with mnn deploy. """
-        export_filename = os.path.join(export_path,
-                                       "joiner_streaming_step.onnx")
+        export_filename = os.path.join(export_path, "joiner.onnx")
         self.train(False)
         self._restore_forward = self.forward  # Restore forward when export done.
         self.forward = self.streaming_step
@@ -256,7 +255,7 @@ class Joiner(nn.Module):
 
     def _sherpa_onnx_export(self, export_path):
         """ Export Onnx model support deploy with sherpa-onnx """
-        export_filename = os.path.join(export_path, "joiner_sherpa.onnx")
+        export_filename = os.path.join(export_path, "joiner.onnx")
         self.train(False)
         self._restore_forward = self.forward  # Restore forward when export done.
         self.forward = self.sherpa_onnx_streaming_step

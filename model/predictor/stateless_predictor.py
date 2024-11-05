@@ -169,8 +169,8 @@ class StatelessPredictor(nn.Module):
 
         # Predictor streaming_step model.
         self.forward = self.streaming_step
-        streaming_step_model_filename = os.path.join(
-            export_path, "predictor_streaming_step.onnx")
+        streaming_step_model_filename = os.path.join(export_path,
+                                                     "predictor.onnx")
         batch_size = 10
         prev_states = self.init_state(batch_size)
         pred_in = torch.randint(1, 128, (batch_size, 1))  # (B, 1)
