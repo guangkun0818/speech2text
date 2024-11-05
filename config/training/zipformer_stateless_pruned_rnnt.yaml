@@ -30,6 +30,7 @@ dataset:
   feat_type: "lhotes_fbank"
   feat_config:
     num_mel_bins: 80
+    snip_edges: true # True for mnn deploy. otherwise for sherpa-onnx.
   
   data_aug_config:
     use_speed_perturb: true
@@ -82,6 +83,7 @@ joiner:
   input_dim: 256
   output_dim: 128
   prune_range: 5 # Set prune_range > 0
+  use_out_project: false
 
 loss:
   model: "Pruned_Rnnt"
@@ -119,7 +121,7 @@ trainer:
   precision: "32-true"
   max_epochs: 20000
   val_check_interval: 1.0
-  accumulate_grad_batches: 1
+  accumulate_grad_batches: 20
   gradient_clip_val: 5.0
   gradient_clip_algorithm: "norm"
   use_distributed_sampler: false
