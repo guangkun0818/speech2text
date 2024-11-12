@@ -16,7 +16,7 @@ class TestStatelessPredictor(unittest.TestCase):
 
     def setUp(self) -> None:
         self._config = {
-            "num_symbols": 1000,
+            "num_symbols": 128,
             "output_dim": 256,
             "symbol_embedding_dim": 512,
             "context_size": 5
@@ -78,10 +78,15 @@ class TestStatelessPredictor(unittest.TestCase):
         self.assertTrue(
             torch.allclose(output[:, 1:], s_output, rtol=3e-5, atol=1e-6))
 
-    def test_predictor_onnx_export(self):
+    def test_predictor_sherpa_onnx_export(self):
         # Unittest of Onnx export
-        export_filename = "test_logs/predictor.onnx"
-        self._predictor.onnx_export(export_filename)
+        export_filename = "test_logs"
+        self._predictor._sherpa_onnx_export(export_filename)
+
+    def test_predictor_sherpa_onnx_export(self):
+        # Unittest of Onnx export
+        export_filename = "test_logs"
+        self._predictor._mnn_onnx_export(export_filename)
 
 
 if __name__ == "__main__":

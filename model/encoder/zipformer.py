@@ -5,6 +5,7 @@
     https://github.com/k2-fsa/icefall/blob/master/egs/librispeech/ASR/zipformer/zipformer.py 
 """
 
+import os
 import dataclasses
 import copy
 import glog
@@ -663,6 +664,7 @@ class Zipformer2(nn.Module):
 
     def _streaming_onnx_export(self,
                                export_filename,
+                               using_dynamic_axe=False,
                                chunk_size=[32],
                                left_context_frames=[128]):
         """ Onnx export of streaming zipformer """
@@ -817,7 +819,8 @@ class Zipformer2(nn.Module):
                 },
                 **inputs,
                 **outputs,
-            },
+            } if using_dynamic_axe else
+            None,  # Set dynamic axe = None for might cause shape inference failure. 
         )
 
         self._add_meta_data(filename=export_filename, meta_data=meta_data)
@@ -866,13 +869,16 @@ class Zipformer2(nn.Module):
         self._add_meta_data(filename=export_filename, meta_data=meta_data)
 
     def onnx_export(self,
-                    export_filename,
+                    export_path,
                     streaming=True,
+                    using_dynamic_axe=False,
                     chunk_size=[32],
                     left_context_frames=[128]):
         """ Onnx export of streaming Zipformer support deploy with sherpa-onnx """
+        export_filename = os.path.join(export_path, "encoder.onnx")
         if streaming:
             self._streaming_onnx_export(export_filename=export_filename,
+                                        using_dynamic_axe=using_dynamic_axe,
                                         chunk_size=chunk_size,
                                         left_context_frames=left_context_frames)
         else:

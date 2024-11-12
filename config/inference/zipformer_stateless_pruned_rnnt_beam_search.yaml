@@ -18,6 +18,7 @@ testset:
     feat_type: "lhotes_fbank"
     feat_config:
       num_mel_bins: 80
+      snip_edges: true # True for mnn deploy. otherwise for sherpa-onnx.
 
 decoding:
   type: "rnnt_beam_decoding"
@@ -30,6 +31,19 @@ streaming:
   encoder_streaming_setting:
     chunk_size: [32]
     left_context_frames: [128]
+
+# If onnx_export=true, export config is required.
+onnx_export_config:
+  export_int8: false
+  onnx_encoder_config:
+    streaming: true
+    using_dynamic_axe: false # If for sherpa-onnx, set as true.
+    chunk_size: [32]
+    left_context_frames: [128]
+  onnx_predictor_config:
+    for_mnn: true
+  onnx_joiner_config:
+    for_mnn: true
 
 trainer:
   accelerator: "gpu" 

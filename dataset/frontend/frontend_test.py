@@ -59,13 +59,13 @@ class TestLhotseKaldiFeatFbank(unittest.TestCase):
     """ Unittest of LhotseKaldiFeatFbank and FeatType """
 
     def setUp(self) -> None:
-        self._test_data_1 = "sample_data/data/wavs/251-136532-0007.wav"
-        self._test_data_2 = "sample_data/data/wavs/1462-170138-0015.wav"
+        self._test_data_1 = "sample_data/data/wavs/2086-149220-0019.wav"
 
         self._config = {
             "feat_type": "lhotes_fbank",
             "feat_config": {
                 "num_mel_bins": 80,
+                "snip_edges": True,
             },
         }
 
@@ -80,12 +80,33 @@ class TestLhotseKaldiFeatFbank(unittest.TestCase):
         glog.info("Fbank feature: {}".format(feats.shape))
         self.assertEqual(feats.shape[-1], self._frontend.feat_dim)
 
+    def test_streaming_frontend(self):
+        pcms, _ = torchaudio.load(self._test_data_1,
+                                  normalize=self._frontend.pcm_normalize)
+        full_feats = self._frontend(pcms)
+
+        # Refer to 77 frames of feats given 25ms frame_length and 10ms frame_shift.
+        pcm_chunk_size = 12560
+        pcm_cache_size = 240
+
+        chunk_feats_1st = self._frontend(pcms[:, :pcm_chunk_size])
+        glog.info("Fbank feature: {}".format(chunk_feats_1st.shape))
+        self.assertEqual(chunk_feats_1st.shape[0], 77)  # 77 frames.
+        self.assertTrue(torch.allclose(full_feats[:77, :], chunk_feats_1st))
+
+        chunk_feats_2nd = self._frontend(
+            pcms[:, pcm_chunk_size - pcm_cache_size:pcm_chunk_size * 2 -
+                 pcm_cache_size])
+        glog.info("Fbank feature: {}".format(chunk_feats_2nd.shape))
+        self.assertEqual(chunk_feats_2nd.shape[0], 77)  # 77 frames.
+        self.assertTrue(
+            torch.allclose(full_feats[77:77 * 2, :], chunk_feats_2nd))
+
 
 class TestTorchScriptKaldiWaveFeature(unittest.TestCase):
 
     def setUp(self) -> None:
-        self._test_data_1 = "sample_data/data/wavs/251-136532-0007.wav"
-        self._test_data_2 = "sample_data/data/wavs/1462-170138-0015.wav"
+        self._test_data_1 = "sample_data/data/wavs/2086-149220-0019.wav"
 
         self._config = {
             "feat_type": "torchscript_fbank",

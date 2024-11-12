@@ -3,6 +3,7 @@
 # Created on 2023.04.05
 """ Joiner of Rnnt """
 
+import os
 import dataclasses
 import onnx
 import torch
@@ -207,8 +208,8 @@ class Joiner(nn.Module):
 
     @torch.jit.export
     @torch.inference_mode(mode=True)
-    def onnx_streaming_step(self, encoder_out: torch.Tensor,
-                            predictor_out: torch.Tensor):
+    def sherpa_onnx_streaming_step(self, encoder_out: torch.Tensor,
+                                   predictor_out: torch.Tensor):
         # Wrapped forward for Onnx export
         encoder_out = self._enc_proj(encoder_out)  # (N, proj_enc_out_dim)
         predictor_out = self._pre_proj(predictor_out)  # (N, proj_pre_out_dim)
@@ -219,11 +220,45 @@ class Joiner(nn.Module):
 
         return output  # Return next token (1, D)
 
-    def onnx_export(self, export_filename):
-        """ Export Onnx model support deploy with sherpa-onnx """
+    def onnx_export(self, export_path, for_mnn=True, for_sherpa=True):
+        """ Interface for onnx export. """
+        if for_sherpa:
+            self._sherpa_onnx_export(export_path=export_path)
+        if for_mnn:
+            self._mnn_onnx_export(export_path=export_path)
+
+    def _mnn_onnx_export(self, export_path):
+        """ Export Onnx model support deploy with mnn deploy. """
+        export_filename = os.path.join(export_path, "joiner.onnx")
         self.train(False)
         self._restore_forward = self.forward  # Restore forward when export done.
-        self.forward = self.onnx_streaming_step
+        self.forward = self.streaming_step
+
+        input_dim = self._input_dim
+        beam_size = 11
+
+        enc_out = torch.rand(1, 1, input_dim, dtype=torch.float32)
+        pred_out = torch.rand(beam_size, 1, input_dim, dtype=torch.float32)
+
+        # Disable dynamic axe for mnn shape inference.
+        torch.onnx.export(
+            self,
+            (enc_out, pred_out),
+            export_filename,
+            verbose=True,
+            opset_version=13,
+            input_names=["enc_out", "pred_out"],
+            output_names=["logit"],
+        )
+
+        self.forward = self._restore_forward  # Restore forward method
+
+    def _sherpa_onnx_export(self, export_path):
+        """ Export Onnx model support deploy with sherpa-onnx """
+        export_filename = os.path.join(export_path, "joiner.onnx")
+        self.train(False)
+        self._restore_forward = self.forward  # Restore forward when export done.
+        self.forward = self.sherpa_onnx_streaming_step
         ts_joiner = torch.jit.script(self)
 
         input_dim = self._input_dim

@@ -97,13 +97,17 @@ class KaldiWaveFeature(FeaturePipeline):
 class LhotseKaldiFeatFbank(nn.Module):
     """ Feature pipeline used by icefall """
 
-    def __init__(self, num_mel_bins=80) -> None:
+    def __init__(self, num_mel_bins=80, snip_edges=False) -> None:
         super(LhotseKaldiFeatFbank, self).__init__()
 
         # Device will always on cpu
         self._num_mel_bins = num_mel_bins
-        self._extractor = KaldifeatFbank(config=KaldifeatFbankConfig(
-            device="cpu"))
+        self._feat_config = KaldifeatFbankConfig(device="cpu")
+        # NOTE: If snip_edges = False, for sherpa-onnx deploy; otherwise, for mnn-speech2text
+        # deploy, since this offer straight-forward causal streaming by only discard right side
+        # of pcms and and the first frame begins at sample zero.
+        self._feat_config.frame_opts.snip_edges = snip_edges
+        self._extractor = KaldifeatFbank(config=self._feat_config)
 
     @property
     def pcm_normalize(self):
