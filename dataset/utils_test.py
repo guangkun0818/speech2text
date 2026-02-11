@@ -14,114 +14,98 @@ from dataset.utils import SubwordTokenizer, SubwordTokenizerConfig
 
 
 class TestCharTokenizer(unittest.TestCase):
-    """ Unittest of Char Tokenzier """
+  """ Unittest of Char Tokenzier """
 
-    def setUp(self) -> None:
+  def setUp(self) -> None:
 
-        self._config = {
-            "labels": [
-                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
-                "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
-                "'", " "
-            ]
-        }
+    self._config = {
+        "labels": [
+            "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
+            "r", "s", "t", "u", "v", "w", "x", "y", "z", "'", " "
+        ]
+    }
 
-        self._tokenizer = CharTokenizer(config=CharTokenizerConfig(
-            **self._config))
+    self._tokenizer = CharTokenizer(config=CharTokenizerConfig(**self._config))
 
-    def test_num_labels(self):
-        self.assertEqual(
-            len(self._config["labels"]) + 3, len(self._tokenizer.labels))
-        self.assertIn("<blank_id>", self._tokenizer.labels)
-        self.assertEqual("<blank_id>", self._tokenizer.labels[0])
-        self.assertIn("<sos/eos>", self._tokenizer.labels)
-        self.assertEqual("<sos/eos>", self._tokenizer.labels[-1])
+  def test_num_labels(self):
+    self.assertEqual(len(self._config["labels"]) + 3, len(self._tokenizer.labels))
+    self.assertIn("<blank_id>", self._tokenizer.labels)
+    self.assertEqual("<blank_id>", self._tokenizer.labels[0])
+    self.assertIn("<sos/eos>", self._tokenizer.labels)
+    self.assertEqual("<sos/eos>", self._tokenizer.labels[-1])
 
-    @parameterized.expand([
-        ("season with salt and pepper and a little sugar to taste"),
-        ("struggle warfare was the condition of private ownership it was fatal"
-        ),
-        ("i don't believe ann knew any magic or she'd have worked it before"),
-        ("a black drove came up over the hill behind the wedding party")
-    ])
-    def test_encode_as_tensor(self, text):
-        # Unittest of encode and decode
-        glog.info(text)
-        labels = self._tokenizer.encode(text)
-        decoded = self._tokenizer.decode(labels)
+  @parameterized.expand([("season with salt and pepper and a little sugar to taste"),
+                         ("struggle warfare was the condition of private ownership it was fatal"),
+                         ("i don't believe ann knew any magic or she'd have worked it before"),
+                         ("a black drove came up over the hill behind the wedding party")])
+  def test_encode_as_tensor(self, text):
+    # Unittest of encode and decode
+    glog.info(text)
+    labels = self._tokenizer.encode(text)
+    decoded = self._tokenizer.decode(labels)
 
-        self.assertEqual(text, decoded)
+    self.assertEqual(text, decoded)
 
-    @parameterized.expand([
-        ("season with salt and pepper and a little sugar to taste"),
-        ("struggle warfare was the condition of private ownership it was fatal"
-        ),
-        ("i don't believe ann knew any magic or she'd have worked it before"),
-        ("a black drove came up over the hill behind the wedding party")
-    ])
-    def test_encoder_as_tokens(self, text):
-        # Unittest of encode_as_tokens and decode_from_tokens
-        glog.info(text)
-        tokens = self._tokenizer.encode_as_tokens(text)
-        decoded = self._tokenizer.decode_from_tokens(tokens)
+  @parameterized.expand([("season with salt and pepper and a little sugar to taste"),
+                         ("struggle warfare was the condition of private ownership it was fatal"),
+                         ("i don't believe ann knew any magic or she'd have worked it before"),
+                         ("a black drove came up over the hill behind the wedding party")])
+  def test_encoder_as_tokens(self, text):
+    # Unittest of encode_as_tokens and decode_from_tokens
+    glog.info(text)
+    tokens = self._tokenizer.encode_as_tokens(text)
+    decoded = self._tokenizer.decode_from_tokens(tokens)
 
-        self.assertEqual(text, decoded)
+    self.assertEqual(text, decoded)
 
 
 class TestSubwordTokenizer(unittest.TestCase):
-    """ Unittest of Subword Tokenizer """
+  """ Unittest of Subword Tokenizer """
 
-    def setUp(self) -> None:
-        self._config = {
-            "spm_model": "sample_data/spm/tokenizer.model",
-            "spm_vocab": "sample_data/spm/tokenizer.vocab"
-        }
+  def setUp(self) -> None:
+    self._config = {
+        "spm_model": "sample_data/spm/tokenizer.model",
+        "spm_vocab": "sample_data/spm/tokenizer.vocab"
+    }
 
-        self._tokenizer = SubwordTokenizer(config=SubwordTokenizerConfig(
-            **self._config))
+    self._tokenizer = SubwordTokenizer(config=SubwordTokenizerConfig(**self._config))
 
-    def test_num_labels(self):
-        self.assertNotIn("<s>", self._tokenizer.labels)
-        self.assertNotIn("</s>", self._tokenizer.labels)
-        self.assertIn("<blank_id>", self._tokenizer.labels)
-        self.assertEqual("<blank_id>", self._tokenizer.labels[0])
-        self.assertIn("<sos/eos>", self._tokenizer.labels)
-        self.assertEqual("<sos/eos>", self._tokenizer.labels[-1])
+  def test_num_labels(self):
+    self.assertNotIn("<s>", self._tokenizer.labels)
+    self.assertNotIn("</s>", self._tokenizer.labels)
+    self.assertIn("<blank_id>", self._tokenizer.labels)
+    self.assertEqual("<blank_id>", self._tokenizer.labels[0])
+    self.assertIn("<sos/eos>", self._tokenizer.labels)
+    self.assertEqual("<sos/eos>", self._tokenizer.labels[-1])
 
-    @parameterized.expand([
-        ("season with salt and pepper and a little sugar to taste"),
-        ("struggle warfare was the condition of private ownership it was fatal"
-        ),
-        ("i don't believe ann knew any magic or she'd have worked it before"),
-        ("a black drove came up over the hill behind the wedding party")
-    ])
-    def test_encode_as_tensor(self, text):
-        # Unittest of encode and decode
-        glog.info(text)
-        labels = self._tokenizer.encode(text)
-        decoded = self._tokenizer.decode(labels)
+  @parameterized.expand([("season with salt and pepper and a little sugar to taste"),
+                         ("struggle warfare was the condition of private ownership it was fatal"),
+                         ("i don't believe ann knew any magic or she'd have worked it before"),
+                         ("a black drove came up over the hill behind the wedding party")])
+  def test_encode_as_tensor(self, text):
+    # Unittest of encode and decode
+    glog.info(text)
+    labels = self._tokenizer.encode(text)
+    decoded = self._tokenizer.decode(labels)
 
-        self.assertEqual(text, decoded)
+    self.assertEqual(text, decoded)
 
-    @parameterized.expand([
-        ("season with salt and pepper and a little sugar to taste"),
-        ("struggle warfare was the condition of private ownership it was fatal"
-        ),
-        ("i don't believe ann knew any magic or she'd have worked it before"),
-        ("a black drove came up over the hill behind the wedding party")
-    ])
-    def test_encoder_as_tokens(self, text):
-        # Unittest of encode_as_tokens and decode_from_tokens
-        glog.info(text)
-        tokens = self._tokenizer.encode_as_tokens(text)
-        decoded = self._tokenizer.decode_from_tokens(tokens)
+  @parameterized.expand([("season with salt and pepper and a little sugar to taste"),
+                         ("struggle warfare was the condition of private ownership it was fatal"),
+                         ("i don't believe ann knew any magic or she'd have worked it before"),
+                         ("a black drove came up over the hill behind the wedding party")])
+  def test_encoder_as_tokens(self, text):
+    # Unittest of encode_as_tokens and decode_from_tokens
+    glog.info(text)
+    tokens = self._tokenizer.encode_as_tokens(text)
+    decoded = self._tokenizer.decode_from_tokens(tokens)
 
-        self.assertEqual(text, decoded)
+    self.assertEqual(text, decoded)
 
-    def test_export_units(self):
-        export_filename = "test_logs/units.txt"
-        self._tokenizer.export_units(export_filename)
+  def test_export_units(self):
+    export_filename = "test_logs/units.txt"
+    self._tokenizer.export_units(export_filename)
 
 
 if __name__ == "__main__":
-    unittest.main()
+  unittest.main()

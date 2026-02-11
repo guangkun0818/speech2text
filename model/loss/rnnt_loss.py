@@ -12,25 +12,25 @@ from torchaudio.transforms import RNNTLoss
 
 @dataclasses.dataclass
 class RnntLossConfig:
-    """ Config of RnntLoss """
-    blank_label: int = 0  # Blank label index
-    clamp: float = -1  # Clamp for gradients
-    reduction: str = "mean"  # Specifies the reduction to apply to the output
+  """ Config of RnntLoss """
+  blank_label: int = 0  # Blank label index
+  clamp: float = -1  # Clamp for gradients
+  reduction: str = "mean"  # Specifies the reduction to apply to the output
 
 
 class RnntLoss(nn.Module):
-    """ Ront Loss wrapped """
+  """ Ront Loss wrapped """
 
-    def __init__(self, config: RnntLossConfig) -> None:
-        super(RnntLoss, self).__init__()
+  def __init__(self, config: RnntLossConfig) -> None:
+    super(RnntLoss, self).__init__()
 
-        self._rnnt_loss = RNNTLoss(blank=config.blank_label,
-                                   clamp=config.clamp,
-                                   reduction=config.reduction)
+    self._rnnt_loss = RNNTLoss(blank=config.blank_label,
+                               clamp=config.clamp,
+                               reduction=config.reduction)
 
-    def forward(self, logits: torch.Tensor, targets: torch.Tensor,
-                logits_length: torch.Tensor, targets_length: torch.Tensor):
-        """ NOTE: RNNTLoss from 0.12.0 torchaudio did log_softmax within itself.
+  def forward(self, logits: torch.Tensor, targets: torch.Tensor, logits_length: torch.Tensor,
+              targets_length: torch.Tensor):
+    """ NOTE: RNNTLoss from 0.12.0 torchaudio did log_softmax within itself.
             Beware that raw targets should be expanded as (B, 1 + U) with 1 left 
             padding dim.
             Args:
@@ -39,7 +39,6 @@ class RnntLoss(nn.Module):
                 logit_lengths: (batch) 
                 target_lengths: (batch)
         """
-        loss = self._rnnt_loss(logits, targets.to(torch.int32),
-                               logits_length.to(torch.int32),
-                               targets_length.to(torch.int32))
-        return loss
+    loss = self._rnnt_loss(logits, targets.to(torch.int32), logits_length.to(torch.int32),
+                           targets_length.to(torch.int32))
+    return loss
