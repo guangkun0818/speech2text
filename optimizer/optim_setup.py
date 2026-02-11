@@ -18,26 +18,26 @@ from optimizer.scaled_adam import ScaledAdam
 
 
 class CosineWarmupScheduler(_LRScheduler):
-    """ Cosine Scheduler with WarmUp from offical doc """
+  """ Cosine Scheduler with WarmUp from offical doc """
 
-    def __init__(self, optimizer, warmup, max_iters):
-        self.warmup = warmup
-        self.max_num_iters = max_iters
-        super().init_(optimizer)
+  def __init__(self, optimizer, warmup, max_iters):
+    self.warmup = warmup
+    self.max_num_iters = max_iters
+    super().init_(optimizer)
 
-    def get_lr(self):
-        lr_factor = self.get_lr_factor(epoch=self.last_epoch)
-        return [base_lr * lr_factor for base_lr in self.base_lrs]
+  def get_lr(self):
+    lr_factor = self.get_lr_factor(epoch=self.last_epoch)
+    return [base_lr * lr_factor for base_lr in self.base_lrs]
 
-    def get_lr_factor(self, epoch):
-        lr_factor = 0.5 * (1 + np.cos(np.pi * epoch / self.max_num_iters))
-        if epoch <= self.warmup:
-            lr_factor *= epoch * 1.0 / self.warmup
-        return lr_factor
+  def get_lr_factor(self, epoch):
+    lr_factor = 0.5 * (1 + np.cos(np.pi * epoch / self.max_num_iters))
+    if epoch <= self.warmup:
+      lr_factor *= epoch * 1.0 / self.warmup
+    return lr_factor
 
 
 class WarmupLR(_LRScheduler):
-    """ The WarmupLR scheduler
+  """ The WarmupLR scheduler
     
         This scheduler is almost same as NoamLR Scheduler except for following
         difference:
@@ -50,38 +50,37 @@ class WarmupLR(_LRScheduler):
         Note that the maximum lr equals to optimizer.lr in this scheduler.
     """
 
-    def __init__(
-        self,
-        optimizer: torch.optim.Optimizer,
-        warmup_steps: Union[int, float] = 25000,
-        last_epoch: int = -1,
-    ):
-        self.warmup_steps = warmup_steps
+  def __init__(
+      self,
+      optimizer: torch.optim.Optimizer,
+      warmup_steps: Union[int, float] = 25000,
+      last_epoch: int = -1,
+  ):
+    self.warmup_steps = warmup_steps
 
-        # __init__() must be invoked before setting field
-        # because step() is also invoked in __init__()
-        super().__init__(optimizer, last_epoch)
+    # __init__() must be invoked before setting field
+    # because step() is also invoked in __init__()
+    super().__init__(optimizer, last_epoch)
 
-    def __repr__(self):
-        return f"{self.__class__.__name__}(warmup_steps={self.warmup_steps})"
+  def __repr__(self):
+    return f"{self.__class__.__name__}(warmup_steps={self.warmup_steps})"
 
-    def get_lr(self):
-        step_num = self.last_epoch + 1
-        if self.warmup_steps == 0:
-            return [lr * step_num**-0.5 for lr in self.base_lrs]
-        else:
-            return [
-                lr * self.warmup_steps**0.5 *
-                min(step_num**-0.5, step_num * self.warmup_steps**-1.5)
-                for lr in self.base_lrs
-            ]
+  def get_lr(self):
+    step_num = self.last_epoch + 1
+    if self.warmup_steps == 0:
+      return [lr * step_num**-0.5 for lr in self.base_lrs]
+    else:
+      return [
+          lr * self.warmup_steps**0.5 * min(step_num**-0.5, step_num * self.warmup_steps**-1.5)
+          for lr in self.base_lrs
+      ]
 
-    def set_step(self, step: int):
-        self.last_epoch = step
+  def set_step(self, step: int):
+    self.last_epoch = step
 
 
 class Eden(_LRScheduler):
-    """
+  """
     Eden2 scheduler, simpler than Eden because it does not use the notion of epoch,
     only batches.
 
@@ -100,43 +99,41 @@ class Eden(_LRScheduler):
               decreasing the learning rate, suggest 5000.
     """
 
-    def __init__(
-        self,
-        optimizer: torch.optim.Optimizer,
-        lr_batches: Union[int, float],
-        warmup_batches: Union[int, float] = 500.0,
-        warmup_start: float = 0.5,
-        last_epoch: int = -1,
-    ):
+  def __init__(
+      self,
+      optimizer: torch.optim.Optimizer,
+      lr_batches: Union[int, float],
+      warmup_batches: Union[int, float] = 500.0,
+      warmup_start: float = 0.5,
+      last_epoch: int = -1,
+  ):
 
-        self.lr_batches = lr_batches
-        self.warmup_batches = warmup_batches
+    self.lr_batches = lr_batches
+    self.warmup_batches = warmup_batches
 
-        assert 0.0 <= warmup_start <= 1.0, warmup_start
-        self.warmup_start = warmup_start
+    assert 0.0 <= warmup_start <= 1.0, warmup_start
+    self.warmup_start = warmup_start
 
-        # __init__() must be invoked before setting field
-        # because step() is also invoked in __init__()
-        super().__init__(optimizer, last_epoch)
+    # __init__() must be invoked before setting field
+    # because step() is also invoked in __init__()
+    super().__init__(optimizer, last_epoch)
 
-    def get_lr(self):
-        factor = ((self.last_epoch**2 + self.lr_batches**2) /
-                  self.lr_batches**2)**-0.5
-        warmup_factor = (
-            1.0
-            if self.last_epoch >= self.warmup_batches else self.warmup_start +
-            (1.0 - self.warmup_start) * (self.last_epoch / self.warmup_batches)
-            # else 0.5 + 0.5 * (self.batch / self.warmup_batches)
-        )
+  def get_lr(self):
+    factor = ((self.last_epoch**2 + self.lr_batches**2) / self.lr_batches**2)**-0.5
+    warmup_factor = (
+        1.0 if self.last_epoch >= self.warmup_batches else self.warmup_start +
+        (1.0 - self.warmup_start) * (self.last_epoch / self.warmup_batches)
+        # else 0.5 + 0.5 * (self.batch / self.warmup_batches)
+    )
 
-        return [x * factor * warmup_factor for x in self.base_lrs]
+    return [x * factor * warmup_factor for x in self.base_lrs]
 
-    def set_step(self, step: int):
-        self.last_epoch = step
+  def set_step(self, step: int):
+    self.last_epoch = step
 
 
 class WarmupPolicy(_LRScheduler):
-    """ Adds warmup kwargs and warmup logic to lr policy.
+  """ Adds warmup kwargs and warmup logic to lr policy.
         All arguments should be passed as kwargs for clarity, 
         
         Args:
@@ -146,58 +143,58 @@ class WarmupPolicy(_LRScheduler):
                 infinite training.
     """
 
-    def __init__(self,
-                 optimizer,
-                 *,
-                 warmup_steps=None,
-                 warmup_ratio=None,
-                 max_steps=None,
-                 min_lr=0.0,
-                 last_epoch=-1):
-        assert not (warmup_steps is not None and warmup_ratio is not None
-                   ), "Either use particular number of step or ratio"
-        assert warmup_ratio is None or max_steps is not None, "If there is a ratio, there should be a total steps"
+  def __init__(self,
+               optimizer,
+               *,
+               warmup_steps=None,
+               warmup_ratio=None,
+               max_steps=None,
+               min_lr=0.0,
+               last_epoch=-1):
+    assert not (warmup_steps is not None and
+                warmup_ratio is not None), "Either use particular number of step or ratio"
+    assert warmup_ratio is None or max_steps is not None, "If there is a ratio, there should be a total steps"
 
-        # It is necessary to assign all attributes *before* __init__,
-        # as class is wrapped by an inner class.
-        self.max_steps = max_steps
-        if warmup_steps is not None:
-            self.warmup_steps = warmup_steps
-        elif warmup_ratio is not None:
-            self.warmup_steps = int(warmup_ratio * max_steps)
-        else:
-            self.warmup_steps = 0
+    # It is necessary to assign all attributes *before* __init__,
+    # as class is wrapped by an inner class.
+    self.max_steps = max_steps
+    if warmup_steps is not None:
+      self.warmup_steps = warmup_steps
+    elif warmup_ratio is not None:
+      self.warmup_steps = int(warmup_ratio * max_steps)
+    else:
+      self.warmup_steps = 0
 
-        self.min_lr = min_lr
-        super().__init__(optimizer, last_epoch)
+    self.min_lr = min_lr
+    super().__init__(optimizer, last_epoch)
 
-    def get_lr(self):
-        if not self._get_lr_called_within_step:
-            warnings.warn(
-                "To get the last learning rate computed by the scheduler, please use `get_last_lr()`.",
-                UserWarning)
+  def get_lr(self):
+    if not self._get_lr_called_within_step:
+      warnings.warn(
+          "To get the last learning rate computed by the scheduler, please use `get_last_lr()`.",
+          UserWarning)
 
-        step = self.last_epoch
+    step = self.last_epoch
 
-        if step < self.warmup_steps and self.warmup_steps > 0:
-            return self._get_warmup_lr(step)
+    if step < self.warmup_steps and self.warmup_steps > 0:
+      return self._get_warmup_lr(step)
 
-        if (self.max_steps is not None) and (step > self.max_steps):
-            return [self.min_lr for _ in self.base_lrs]
+    if (self.max_steps is not None) and (step > self.max_steps):
+      return [self.min_lr for _ in self.base_lrs]
 
-        return self._get_lr(step)
+    return self._get_lr(step)
 
-    def _get_warmup_lr(self, step):
-        lr_val = (step + 1) / (self.warmup_steps + 1)
-        return [initial_lr * lr_val for initial_lr in self.base_lrs]
+  def _get_warmup_lr(self, step):
+    lr_val = (step + 1) / (self.warmup_steps + 1)
+    return [initial_lr * lr_val for initial_lr in self.base_lrs]
 
-    def _get_lr(self, step):
-        """ Simple const lr policy """
-        return self.base_lrs
+  def _get_lr(self, step):
+    """ Simple const lr policy """
+    return self.base_lrs
 
 
 class WarmupHoldPolicy(WarmupPolicy):
-    """ Variant of WarmupPolicy which maintains high learning rate for a 
+  """ Variant of WarmupPolicy which maintains high learning rate for a 
         defined number of steps. All arguments should be passed as kwargs 
         for clarity. 
         
@@ -211,73 +208,73 @@ class WarmupHoldPolicy(WarmupPolicy):
                 infinite training
     """
 
-    def __init__(self,
-                 optimizer,
-                 *,
-                 warmup_steps=None,
-                 warmup_ratio=None,
-                 hold_steps=None,
-                 hold_ratio=None,
-                 max_steps=None,
-                 min_lr=0.0,
-                 last_epoch=-1):
+  def __init__(self,
+               optimizer,
+               *,
+               warmup_steps=None,
+               warmup_ratio=None,
+               hold_steps=None,
+               hold_ratio=None,
+               max_steps=None,
+               min_lr=0.0,
+               last_epoch=-1):
 
-        assert not (hold_steps is not None and hold_ratio is not None
-                   ), "Either use particular number of step or ratio"
-        assert hold_ratio is None or max_steps is not None, "If there is a ratio, there should be a total steps"
+    assert not (hold_steps is not None and
+                hold_ratio is not None), "Either use particular number of step or ratio"
+    assert hold_ratio is None or max_steps is not None, "If there is a ratio, there should be a total steps"
 
-        self.min_lr = min_lr
-        self._last_warmup_1r = 0.0
+    self.min_lr = min_lr
+    self._last_warmup_1r = 0.0
 
-        # Necessary to duplicate as class attributes are hidden in inner class
-        self.max_steps = max_steps
-        if warmup_steps is not None:
-            self.warmup_steps = warmup_steps
-        elif warmup_ratio is not None:
-            self.warmup_steps = int(warmup_ratio * max_steps)
-        else:
-            self.warmup_steps = 0
+    # Necessary to duplicate as class attributes are hidden in inner class
+    self.max_steps = max_steps
+    if warmup_steps is not None:
+      self.warmup_steps = warmup_steps
+    elif warmup_ratio is not None:
+      self.warmup_steps = int(warmup_ratio * max_steps)
+    else:
+      self.warmup_steps = 0
 
-        if hold_steps is not None:
-            self.hold_steps = hold_steps + self.warmup_steps
-        elif hold_ratio is not None:
-            self.hold_steps = int(hold_ratio * max_steps) + self.warmup_steps
-        else:
-            self.hold_steps = 0
+    if hold_steps is not None:
+      self.hold_steps = hold_steps + self.warmup_steps
+    elif hold_ratio is not None:
+      self.hold_steps = int(hold_ratio * max_steps) + self.warmup_steps
+    else:
+      self.hold_steps = 0
 
-        super().__init__(
-            optimizer,
-            warmup_steps=warmup_steps,
-            warmup_ratio=warmup_ratio,
-            max_steps=max_steps,
-            last_epoch=last_epoch,
-            min_lr=min_lr,
-        )
+    super().__init__(
+        optimizer,
+        warmup_steps=warmup_steps,
+        warmup_ratio=warmup_ratio,
+        max_steps=max_steps,
+        last_epoch=last_epoch,
+        min_lr=min_lr,
+    )
 
-    def get_lr(self):
-        if not self._get_lr_called_within_step:
-            warnings.warn(
-                "To get the last learning rate computed by the scheduler, "
-                "please use `get_last_lr()`.", UserWarning)
+  def get_lr(self):
+    if not self._get_lr_called_within_step:
+      warnings.warn(
+          "To get the last learning rate computed by the scheduler, "
+          "please use `get_last_lr()`.", UserWarning)
 
-        step = self.last_epoch
+    step = self.last_epoch
 
-        # Warmup phase
-        if step <= self.warmup_steps and self.warmup_steps > 0:
-            return self._get_warmup_lr(step)
+    # Warmup phase
+    if step <= self.warmup_steps and self.warmup_steps > 0:
+      return self._get_warmup_lr(step)
 
-        # Hold phase
-        if (step >= self.warmup_steps) and (step < self.hold_steps):
-            return self.base_lrs
+    # Hold phase
+    if (step >= self.warmup_steps) and (step < self.hold_steps):
+      return self.base_lrs
 
-        if step > self.max_steps:
-            return [self.min_lr for _ in self.base_lrs]
+    if step > self.max_steps:
+      return [self.min_lr for _ in self.base_lrs]
 
-        return self._get_lr(step)
+    return self._get_lr(step)
 
 
 class NoamHoldAnnealing(WarmupHoldPolicy):
-    """ Implementation of the Noam Hold Annealing policy from the SqueezeFormer paper.
+  """ Implementation of the Noam Hold Annealing policy from the SqueezeFormer paper.
         
         Unlike NoamAnnealing, the peak learning rate can be explicitly set for this scheduler.
         The schedule first performs linear warmup, then holds the peak LR, then decays with some schedule 
@@ -313,73 +310,64 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
             min_lr: Minimum learning rate.
     """
 
-    def __init__(self,
-                 optimizer,
-                 *,
-                 max_steps,
-                 decay_rate=0.5,
-                 min_lr=0.0,
-                 last_epoch=-1,
-                 **kwargs):
+  def __init__(self, optimizer, *, max_steps, decay_rate=0.5, min_lr=0.0, last_epoch=-1, **kwargs):
 
-        self.decay_rate = decay_rate
-        super().__init__(optimizer=optimizer,
-                         max_steps=max_steps,
-                         last_epoch=last_epoch,
-                         min_lr=min_lr,
-                         **kwargs)
+    self.decay_rate = decay_rate
+    super().__init__(optimizer=optimizer,
+                     max_steps=max_steps,
+                     last_epoch=last_epoch,
+                     min_lr=min_lr,
+                     **kwargs)
 
-    def _get_lr(self, step):
-        if self.warmup_steps is None or self.warmup_steps == 0:
-            raise ValueError(
-                "Noam scheduler cannot be used without warmup steps")
+  def _get_lr(self, step):
+    if self.warmup_steps is None or self.warmup_steps == 0:
+      raise ValueError("Noam scheduler cannot be used without warmup steps")
 
-        if self.hold_steps > 0:
-            hold_steps = self.hold_steps - self.warmup_steps
-        else:
-            hold_steps = 0
+    if self.hold_steps > 0:
+      hold_steps = self.hold_steps - self.warmup_steps
+    else:
+      hold_steps = 0
 
-        new_lrs = [
-            self._noam_hold_annealing(
-                initial_lr,
-                step=step,
-                warmup_steps=self.warmup_steps,
-                hold_steps=hold_steps,
-                decay_rate=self.decay_rate,
-                min_lr=self.min_lr,
-            ) for initial_lr in self.base_lrs
-        ]
-        return new_lrs
+    new_lrs = [
+        self._noam_hold_annealing(
+            initial_lr,
+            step=step,
+            warmup_steps=self.warmup_steps,
+            hold_steps=hold_steps,
+            decay_rate=self.decay_rate,
+            min_lr=self.min_lr,
+        ) for initial_lr in self.base_lrs
+    ]
+    return new_lrs
 
-    def _noam_hold_annealing(initial_lr, step, warmup_steps, hold_steps,
-                             decay_rate, min_lr):
-        # hold_steps = total number of steps to hold the LR, not the warmup + hold steps.
-        T_warmup_decay = max(1, warmup_steps**decay_rate)
-        T_hold_decay = max(1, (step - hold_steps)**decay_rate)
-        lr = (initial_lr * T_warmup_decay) / T_hold_decay
-        lr = max(lr, min_lr)
-        return lr
+  def _noam_hold_annealing(initial_lr, step, warmup_steps, hold_steps, decay_rate, min_lr):
+    # hold_steps = total number of steps to hold the LR, not the warmup + hold steps.
+    T_warmup_decay = max(1, warmup_steps**decay_rate)
+    T_hold_decay = max(1, (step - hold_steps)**decay_rate)
+    lr = (initial_lr * T_warmup_decay) / T_hold_decay
+    lr = max(lr, min_lr)
+    return lr
 
 
 @unique
 class OptimizerPool(Enum):
-    """ Optimizier pool """
-    Adam = Adam
-    AdamW = AdamW
-    ScaledAdam = ScaledAdam
+  """ Optimizier pool """
+  Adam = Adam
+  AdamW = AdamW
+  ScaledAdam = ScaledAdam
 
 
 @unique
 class LrSchedulerPool(Enum):
-    """ Lr scheduler pool """
-    Warmup = WarmupLR
-    Cosine_Annealing = CosineAnnealingLR
-    Cosine_Warmup = CosineWarmupScheduler
-    Noam_Hold_Annealing = NoamHoldAnnealing
-    Eden = Eden
+  """ Lr scheduler pool """
+  Warmup = WarmupLR
+  Cosine_Annealing = CosineAnnealingLR
+  Cosine_Warmup = CosineWarmupScheduler
+  Noam_Hold_Annealing = NoamHoldAnnealing
+  Eden = Eden
 
 
 def OptimSetup(config):
-    # Optimizer and Scheduler Setup inferface
-    return OptimizerPool[config["optimizer"]["type"]].value, LrSchedulerPool[
-        config["lr_scheduler"]["type"]].value
+  # Optimizer and Scheduler Setup inferface
+  return OptimizerPool[config["optimizer"]["type"]].value, LrSchedulerPool[config["lr_scheduler"]
+                                                                           ["type"]].value

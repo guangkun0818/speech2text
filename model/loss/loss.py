@@ -17,37 +17,34 @@ from model.loss.mae_loss import MaeLoss, MaeLossConfig
 
 
 class Loss(nn.Module):
-    """ Loss interface for all desgined losses """
+  """ Loss interface for all desgined losses """
 
-    def __init__(self, config) -> None:
-        super(Loss, self).__init__()
+  def __init__(self, config) -> None:
+    super(Loss, self).__init__()
 
-        if config["model"] == "CTC":
-            self.loss = CtcLoss(config=CtcLossConfig(**config["config"]))
-        elif config["model"] == "Rnnt":
-            self.loss = RnntLoss(config=RnntLossConfig(**config["config"]))
-        elif config["model"] == "Pruned_Rnnt":
-            self.loss = PrunedRnntLoss(config=PrunedRnntLossConfig(
-                **config["config"]))
-        elif config["model"] == "MaskedCELoss":
-            self.loss = MaskedCELoss(config=MaskedCELossConfig(
-                **config["config"]))
-        elif config["model"] == "MaskedKLDiv":
-            self.loss = MaskedKLDivergence(config=MaskedKLDivergenceConfig(
-                **config["config"]))
-        elif config["model"] == "MaeLoss":
-            self.loss = MaeLoss(config=MaeLossConfig(**config["config"]))
-        else:
-            raise ValueError("Not support {} loss".format(config["model"]))
+    if config["model"] == "CTC":
+      self.loss = CtcLoss(config=CtcLossConfig(**config["config"]))
+    elif config["model"] == "Rnnt":
+      self.loss = RnntLoss(config=RnntLossConfig(**config["config"]))
+    elif config["model"] == "Pruned_Rnnt":
+      self.loss = PrunedRnntLoss(config=PrunedRnntLossConfig(**config["config"]))
+    elif config["model"] == "MaskedCELoss":
+      self.loss = MaskedCELoss(config=MaskedCELossConfig(**config["config"]))
+    elif config["model"] == "MaskedKLDiv":
+      self.loss = MaskedKLDivergence(config=MaskedKLDivergenceConfig(**config["config"]))
+    elif config["model"] == "MaeLoss":
+      self.loss = MaeLoss(config=MaeLossConfig(**config["config"]))
+    else:
+      raise ValueError("Not support {} loss".format(config["model"]))
 
-    def forward(self, batch: Dict[str, torch.Tensor]):
-        """ Loss training graph """
+  def forward(self, batch: Dict[str, torch.Tensor]):
+    """ Loss training graph """
 
-        loss = self.loss(**batch)
-        return loss
+    loss = self.loss(**batch)
+    return loss
 
-    def predict(self, logits: torch.Tensor):
-        """ Predict step for metric compute """
+  def predict(self, logits: torch.Tensor):
+    """ Predict step for metric compute """
 
-        if hasattr(self.loss, "predict"):
-            return self.loss.predict(logits)
+    if hasattr(self.loss, "predict"):
+      return self.loss.predict(logits)

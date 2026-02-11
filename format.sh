@@ -8,11 +8,11 @@
 
 # Python, yapf version 0.32.0
 find ./ -path "./runtime" -prune -o \
-    -iname "*.py" -print | xargs yapf -i --style google
+    -iname "*.py" -print | xargs yapf -i --style=.style.yapf
 
 # C++ runtime clang-format 16.0.0
 find ./runtime/asr_rt/ -iname "*.h" -o \
-    -iname "*.cc" -o -iname "*.cpp" | xargs clang-format -style=Google -i
+    -iname "*.cc" -o -iname "*.cpp" | xargs clang-format -style=file:.clang-format  -i
 
 # CMakes cmake-format version 0.6.13
 find ./runtime/cmake/ -iname "*.cmake" | xargs cmake-format -i
