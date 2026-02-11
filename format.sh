@@ -12,10 +12,10 @@ find ./ -path "./runtime" -prune -o \
 
 # C++ runtime clang-format 16.0.0
 find ./runtime/asr_rt/ -iname "*.h" -o \
-    -iname "*.cc" -o -iname "*.cpp" | xargs clang-format -style=Google -i
+    -iname "*.cc" -o -iname "*.cpp" | xargs clang-format -style=.style.yapf -i
 
 # CMakes cmake-format version 0.6.13
 find ./runtime/cmake/ -iname "*.cmake" | xargs cmake-format -i
 find ./runtime/ -path "./runtime/3rd_party" -prune -o \
     -path "./runtime/build" -prune -o \
-    -iname "CMakeLists.txt" -print | xargs cmake-format -i
+    -iname "CMakeLists.txt" -print | xargs cmake-format -i -style=file:.clang-format
