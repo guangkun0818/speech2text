@@ -64,7 +64,8 @@ class MaskedKLDivergence(nn.Module):
     ori_labels = ori_labels.contiguous().reshape(-1)
 
     smoothed_label = torch.zeros_like(logits)
-    smoothed_label = smoothed_label.fill_(self._label_smoothing / (self._num_classes - 1))
+    smoothed_label = smoothed_label.fill_(self._label_smoothing /
+                                          (self._num_classes - 1))
     confidence = 1 - self._label_smoothing
     smoothed_label.scatter_(-1, ori_labels.unsqueeze(-1), confidence)
 

@@ -10,7 +10,8 @@ import torch.nn as nn
 
 from typing import List, Tuple, Optional
 from model.predictor.lstm_predictor import (LstmPredictor, LstmPredictorConfig)
-from model.predictor.stateless_predictor import (StatelessPredictor, StatelessPredictorConfig)
+from model.predictor.stateless_predictor import (StatelessPredictor,
+                                                 StatelessPredictorConfig)
 
 
 class Predictor(nn.Module):
@@ -20,9 +21,11 @@ class Predictor(nn.Module):
     super(Predictor, self).__init__()
 
     if config["model"] == "Lstm":
-      self.predictor = LstmPredictor(config=LstmPredictorConfig(**config["config"]))
+      self.predictor = LstmPredictor(config=LstmPredictorConfig(
+          **config["config"]))
     elif config["model"] == "Stateless":
-      self.predictor = StatelessPredictor(config=StatelessPredictorConfig(**config["config"]))
+      self.predictor = StatelessPredictor(config=StatelessPredictorConfig(
+          **config["config"]))
     else:
       raise NotImplementedError
 
@@ -44,8 +47,8 @@ class Predictor(nn.Module):
   @torch.jit.export
   @torch.inference_mode(mode=True)
   def streaming_step(
-      self, input: torch.Tensor,
-      state: List[List[torch.Tensor]]) -> Tuple[torch.Tensor, List[List[torch.Tensor]]]:
+      self, input: torch.Tensor, state: List[List[torch.Tensor]]
+  ) -> Tuple[torch.Tensor, List[List[torch.Tensor]]]:
     # Streaming step of inference.
     output, state_out = self.predictor.streaming_step(input, state)
 
@@ -55,5 +58,6 @@ class Predictor(nn.Module):
     if hasattr(self.predictor, "onnx_export"):
       return self.predictor.onnx_export(export_path, **config)
     else:
-      raise NotImplementedError("{} encoder does not support onnx_export".format(
-          self.predictor.__class__.__name__))
+      raise NotImplementedError(
+          "{} encoder does not support onnx_export".format(
+              self.predictor.__class__.__name__))

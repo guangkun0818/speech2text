@@ -21,7 +21,8 @@ class TestStatelessPredictor(unittest.TestCase):
         "symbol_embedding_dim": 512,
         "context_size": 5
     }
-    self._predictor = StatelessPredictor(config=StatelessPredictorConfig(**self._config))
+    self._predictor = StatelessPredictor(config=StatelessPredictorConfig(
+        **self._config))
 
   def test_predictor_forward(self):
     # Unittest of predictor forward
@@ -71,7 +72,8 @@ class TestStatelessPredictor(unittest.TestCase):
 
     # Presicion check
     s_output = torch.concat(s_output, dim=1)
-    self.assertTrue(torch.allclose(output[:, 1:], s_output, rtol=3e-5, atol=1e-6))
+    self.assertTrue(
+        torch.allclose(output[:, 1:], s_output, rtol=3e-5, atol=1e-6))
 
   def test_predictor_sherpa_onnx_export(self):
     # Unittest of Onnx export

@@ -26,12 +26,14 @@ class FrontendExport(pl.Callback):
     super(FrontendExport, self).__init__()
     self._save_dir = save_dir
 
-  def on_fit_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+  def on_fit_start(self, trainer: pl.Trainer,
+                   pl_module: pl.LightningModule) -> None:
     if trainer.global_rank == 0:
       # Applied only on rank 0 device.
       glog.info("Frontend export specified.")
       dummy_pcm = torch.rand(1, 16000)
-      torchscipt_frontend = torch.jit.trace(pl_module._frontend, example_inputs=dummy_pcm)
+      torchscipt_frontend = torch.jit.trace(pl_module._frontend,
+                                            example_inputs=dummy_pcm)
       torchscipt_frontend = torch.jit.script(torchscipt_frontend)
       torchscipt_frontend.save(os.path.join(self._save_dir, "frontend.script"))
       glog.info("Exported frontend can be found at {}".format(
@@ -47,10 +49,12 @@ class ComputeGlobalCmvn(pl.Callback):
     self._frontend_dir = frontend_dir
     self._export_dir = export_dir
 
-  def on_fit_start(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule") -> None:
+  def on_fit_start(self, trainer: "pl.Trainer",
+                   pl_module: "pl.LightningModule") -> None:
     if trainer.global_rank == 0:
       # Create empty tensor to track global cmvn over dataset
-      glog.info("Global CMVN specified, compute through whole training dataset...")
+      glog.info(
+          "Global CMVN specified, compute through whole training dataset...")
 
       global_mean = torch.zeros(self._feat_dim)  # (feat_dim)
       global_var = torch.ones(self._feat_dim)  # (feat_dim)
@@ -60,10 +64,11 @@ class ComputeGlobalCmvn(pl.Callback):
       assert os.path.exists(os.path.join(self._frontend_dir, "frontend.script"))
       frontend = os.path.join(self._frontend_dir, "frontend.script")
 
-      dataset = AsrTestDataset(testset_json=pl_module._dataset_config["train_data"],
-                               testset_config=pl_module._dataset_config,
-                               dur_min_filter=pl_module._dataset_config["dur_min_filter"],
-                               dur_max_filter=pl_module._dataset_config["dur_max_filter"])
+      dataset = AsrTestDataset(
+          testset_json=pl_module._dataset_config["train_data"],
+          testset_config=pl_module._dataset_config,
+          dur_min_filter=pl_module._dataset_config["dur_min_filter"],
+          dur_max_filter=pl_module._dataset_config["dur_max_filter"])
       dataloader = DataLoader(dataset=dataset, batch_size=1, num_workers=4)
       for i, batch in enumerate(dataloader):
         feat = batch["feat"].squeeze(0)  # (1, T, D) -> (T, D)
@@ -97,7 +102,8 @@ class LoadGlobalCmvn(pl.Callback):
 
     self._cmvn_dir = cmvn_dir
 
-  def on_train_start(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+  def on_train_start(self, trainer: pl.Trainer,
+                     pl_module: pl.LightningModule) -> None:
     # Load saved global mean/istd into GlobalCmvnLayer
     global_mean = torch.load(os.path.join(self._cmvn_dir, "global_mean.t"))
     global_istd = torch.load(os.path.join(self._cmvn_dir, "global_istd.t"))

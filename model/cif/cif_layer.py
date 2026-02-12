@@ -60,7 +60,8 @@ class CifLayer(nn.Module):
                 ignore_id:
                 mask_chunk_predictor:
         """
-    context = encoder_out.transpose(1, 2).contiguous()  # （B, T, D） -> （B, D, T） for Conv1d
+    context = encoder_out.transpose(
+        1, 2).contiguous()  # （B, T, D） -> （B, D, T） for Conv1d
     queries = self._pad(context)
     memory = self._cif_conv1d(queries)
     output = memory + context
@@ -75,7 +76,8 @@ class CifLayer(nn.Module):
     if encoder_out_length is not None:
       mask = (~make_pad_mask(encoder_out_length).unsqueeze(1)).to(output.device)
     if mask is not None:
-      mask = mask.transpose(-1, -2).contiguous().float()  # (B, T, 1) -> (B, 1, T)
+      mask = mask.transpose(-1,
+                            -2).contiguous().float()  # (B, T, 1) -> (B, 1, T)
       alphas = alphas * mask
     if mask_chunk_predictor is not None:
       alphas = alphas * mask_chunk_predictor
@@ -90,7 +92,8 @@ class CifLayer(nn.Module):
     else:
       target_length = None
 
-    token_num_hat = alphas.sum(-1)  # the estimation of token number, token_num _hat: (B)
+    token_num_hat = alphas.sum(
+        -1)  # the estimation of token number, token_num _hat: (B)
 
     if target_length is not None:
       # Scaling strategy in training: the weight a is scaled by target length during training so as to
@@ -99,10 +102,12 @@ class CifLayer(nn.Module):
 
     elif self._tail_threshold > 0:  # without target length, for inference
       encoder_out, alphas, token_num_hat = self._tail_process_fn(
-          encoder_out, alphas, token_num_hat, mask=mask)  # Tail padding one frame, T -> T + 1
+          encoder_out, alphas, token_num_hat,
+          mask=mask)  # Tail padding one frame, T -> T + 1
 
     acoustic_embeds, cif_peak = self.continuous_integrate_fire(
-        encoder_out, alphas, self._threshold)  # Core function, (B, max_label_len, D), (B, T)
+        encoder_out, alphas,
+        self._threshold)  # Core function, (B, max_label_len, D), (B, T)
 
     if target_length is None and self._tail_threshold > 0.0:
       token_num_int = torch.max(token_num_hat).type(torch.int32).item()
@@ -119,21 +124,27 @@ class CifLayer(nn.Module):
                        mask=None):
     batch, time_stamp, dim = encoder_out.size()
     if mask is not None:
-      zeros_t = torch.zeros((batch, 1), dtype=torch.float32, device=alphas.device)
+      zeros_t = torch.zeros((batch, 1),
+                            dtype=torch.float32,
+                            device=alphas.device)
       ones_t = torch.ones_like(zeros_t)
       mask_1 = torch.cat([mask, zeros_t], dim=1)
       mask_2 = torch.cat([ones_t, mask], dim=1)
       mask = mask_2 - mask_1  # mask: (1, 1, 1, 0, 0) -> (0, 0, 0, 1, 0, 0)
       tail_threshold = mask * self._tail_threshold
       alphas = torch.cat([alphas, zeros_t], dim=1)
-      alphas = torch.add(alphas,
-                         tail_threshold)  # make sure alpha > tail_threshold in the last valid frame
+      alphas = torch.add(
+          alphas, tail_threshold
+      )  # make sure alpha > tail_threshold in the last valid frame
     else:
-      tail_threshold = torch.tensor([[self._tail_threshold]], dtype=alphas.dtype).to(alphas.device)
-      tail_threshold = tail_threshold.expand(batch, 1)  # Add this line to fix bug
+      tail_threshold = torch.tensor([[self._tail_threshold]],
+                                    dtype=alphas.dtype).to(alphas.device)
+      tail_threshold = tail_threshold.expand(batch,
+                                             1)  # Add this line to fix bug
       alphas = torch.cat([alphas, tail_threshold], dim=1)
 
-    zeros = torch.zeros((batch, 1, dim), dtype=encoder_out.dtype).to(encoder_out.device)
+    zeros = torch.zeros((batch, 1, dim),
+                        dtype=encoder_out.dtype).to(encoder_out.device)
     encoder_out = torch.cat([encoder_out, zeros], dim=1)
     token_num = alphas.sum(dim=-1)
     token_num_floor = torch.floor(token_num)
@@ -143,11 +154,14 @@ class CifLayer(nn.Module):
   @staticmethod
   def continuous_integrate_fire(encoder_out: torch.Tensor, alphas: torch.Tensor,
                                 threshold: torch.Tensor):
-    batch_size, len_time, encoder_out_size = encoder_out.size()  # encoder_out: (B, T, D)
+    batch_size, len_time, encoder_out_size = encoder_out.size(
+    )  # encoder_out: (B, T, D)
 
     # loop varss
-    integrate = torch.zeros([batch_size], device=encoder_out.device)  # integrate: (B)
-    frame = torch.zeros([batch_size, encoder_out_size], device=encoder_out.device)  # frame: (B, D)
+    integrate = torch.zeros([batch_size],
+                            device=encoder_out.device)  # integrate: (B)
+    frame = torch.zeros([batch_size, encoder_out_size],
+                        device=encoder_out.device)  # frame: (B, D)
 
     # intermediate vars along time
     list_fires = []
@@ -155,21 +169,24 @@ class CifLayer(nn.Module):
     for t in range(len_time):
       alpha_t = alphas[:, t]  # alpha(time t): (B)
       # why torch.ones, not torch. tensor (threshold)???
-      distribution_completion = torch.ones([batch_size], device=encoder_out.device) - integrate
+      distribution_completion = torch.ones(
+          [batch_size], device=encoder_out.device) - integrate
 
       integrate += alpha_t  # (B)
       list_fires.append(integrate)  # list_fires length: T
 
       fire_place = integrate >= threshold  # (B)
-      integrate = torch.where(fire_place,
-                              integrate - torch.ones([batch_size], device=encoder_out.device),
-                              integrate)  # make sure integrate is not greater than 1
+      integrate = torch.where(
+          fire_place,
+          integrate - torch.ones([batch_size], device=encoder_out.device),
+          integrate)  # make sure integrate is not greater than 1
       cur = torch.where(fire_place, distribution_completion,
                         alpha_t)  # the left part of alpha, cur: (B)
       remainds = alpha_t - cur  # the right part of alpha, remainds: (B)
 
       frame += cur.unsqueeze(1) * encoder_out[:, t, :]  # (B, D)
-      list_frames.append(frame)  # the num of list_frames equal to t, not sum(alpha)
+      list_frames.append(
+          frame)  # the num of list_frames equal to t, not sum(alpha)
 
       frame = torch.where(
           fire_place.unsqueeze(1).repeat(1, encoder_out_size),  # (B, D) 
@@ -189,8 +206,10 @@ class CifLayer(nn.Module):
       l = torch.index_select(
           frames[b, :, :],  # frames[b, :,:] : (T, D)
           0,
-          torch.nonzero(fire >= threshold).squeeze())  # the frames at fire place,
-      pad_l = torch.zeros([max_label_len - l.size(0), encoder_out_size], device=encoder_out.device)
+          torch.nonzero(
+              fire >= threshold).squeeze())  # the frames at fire place,
+      pad_l = torch.zeros([max_label_len - l.size(0), encoder_out_size],
+                          device=encoder_out.device)
       list_ls.append(torch.cat([l, pad_l], 0))  # (max_label_len, D)
 
     return torch.stack(list_ls, 0), fires  # (B, max_label_len, D), (B, T)

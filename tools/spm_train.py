@@ -49,9 +49,9 @@ class SpmTrain(object):
             --character_converage=1 \
             --model_type={} \
             --model_prefix={} \
-            --input_sentence_size=100000000".format(os.path.join(self._spm_export_path, "corpus"),
-                                                    self._vocab_size, self._model_type,
-                                                    os.path.join(self._spm_export_path, "subword")))
+            --input_sentence_size=100000000".format(
+        os.path.join(self._spm_export_path, "corpus"), self._vocab_size,
+        self._model_type, os.path.join(self._spm_export_path, "subword")))
 
 
 def _spm_training(config):
@@ -60,12 +60,16 @@ def _spm_training(config):
   spm_train_config = SpmTrainConfig(**config["tokenizer"]["train_config"])
 
   if config["resume"] is not None:
-    assert os.path.exists(os.path.join(spm_train_config.spm_export_path, "subword.model"))
-    assert os.path.exists(os.path.join(spm_train_config.spm_export_path, "subword.vocab"))
-    glog.info("`spm_train` will be overrided since `resume` is set, use existed one.")
+    assert os.path.exists(
+        os.path.join(spm_train_config.spm_export_path, "subword.model"))
+    assert os.path.exists(
+        os.path.join(spm_train_config.spm_export_path, "subword.vocab"))
+    glog.info(
+        "`spm_train` will be overrided since `resume` is set, use existed one.")
     return
   else:
-    glog.info("Training spm model with config: {}".format(config["tokenizer"]["train_config"]))
+    glog.info("Training spm model with config: {}".format(
+        config["tokenizer"]["train_config"]))
     spm_trainer = SpmTrain(config=spm_train_config)
     train_data = config["dataset"]["train_data"]
     spm_trainer.train(train_data=train_data)
@@ -91,8 +95,8 @@ def spm_training_preprocess(task_type, task_export_path, config):
 
     if spm_apply_train:
       assert (
-          spm_model is None and
-          spm_vocab is None), "If spm_train applied, please set spm_model and spm_vocab as `None`"
+          spm_model is None and spm_vocab is None
+      ), "If spm_train applied, please set spm_model and spm_vocab as `None`"
       assert "train_config" in config[
           "tokenizer"], "If spm_train applied, please provide related train_config."
       config["tokenizer"]["train_config"]["spm_export_path"] = spm_export_dir
@@ -100,13 +104,17 @@ def spm_training_preprocess(task_type, task_export_path, config):
       _spm_training(config)
 
       # Update tokenizer setting with trained spm.
-      config["tokenizer"]["config"]["spm_model"] = os.path.join(spm_export_dir, "subword.model")
-      config["tokenizer"]["config"]["spm_vocab"] = os.path.join(spm_export_dir, "subword.vocab")
+      config["tokenizer"]["config"]["spm_model"] = os.path.join(
+          spm_export_dir, "subword.model")
+      config["tokenizer"]["config"]["spm_vocab"] = os.path.join(
+          spm_export_dir, "subword.vocab")
     else:
       # Backup pre-trained spm model.
       os.makedirs(spm_export_dir, exist_ok=True)
-      shutil.copyfile(spm_model, os.path.join(spm_export_dir, os.path.basename(spm_model)))
-      shutil.copyfile(spm_vocab, os.path.join(spm_export_dir, os.path.basename(spm_vocab)))
+      shutil.copyfile(spm_model,
+                      os.path.join(spm_export_dir, os.path.basename(spm_model)))
+      shutil.copyfile(spm_vocab,
+                      os.path.join(spm_export_dir, os.path.basename(spm_vocab)))
 
   # Return update train config.
   return config

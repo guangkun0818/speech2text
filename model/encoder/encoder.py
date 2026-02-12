@@ -20,7 +20,8 @@ class Encoder(nn.Module):
     super(Encoder, self).__init__()
 
     if config["model"] == "Wav2Vec2":
-      self.encoder = Wav2Vec2Encoder(config=Wav2Vec2CustomizedConfig(**config["config"]))
+      self.encoder = Wav2Vec2Encoder(config=Wav2Vec2CustomizedConfig(
+          **config["config"]))
     elif config["model"] == "Conformer":
       self.encoder = Conformer(config=ConformerConfig(**config["config"]))
     elif config["model"] == "Emformer":
@@ -40,12 +41,14 @@ class Encoder(nn.Module):
     if hasattr(self.encoder, "streaming_forward"):
       return self.encoder.streaming_forward(x, length, **config)
     else:
-      raise NotImplementedError("{} encoder does not support streaming_forward".format(
-          self.encoder.__class__.__name__))
+      raise NotImplementedError(
+          "{} encoder does not support streaming_forward".format(
+              self.encoder.__class__.__name__))
 
   def onnx_export(self, export_filename, **config):
     if hasattr(self.encoder, "onnx_export"):
       return self.encoder.onnx_export(export_filename, **config)
     else:
-      raise NotImplementedError("{} encoder does not support onnx_export".format(
-          self.encoder.__class__.__name__))
+      raise NotImplementedError(
+          "{} encoder does not support onnx_export".format(
+              self.encoder.__class__.__name__))

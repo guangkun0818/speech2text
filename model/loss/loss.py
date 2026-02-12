@@ -27,11 +27,13 @@ class Loss(nn.Module):
     elif config["model"] == "Rnnt":
       self.loss = RnntLoss(config=RnntLossConfig(**config["config"]))
     elif config["model"] == "Pruned_Rnnt":
-      self.loss = PrunedRnntLoss(config=PrunedRnntLossConfig(**config["config"]))
+      self.loss = PrunedRnntLoss(config=PrunedRnntLossConfig(
+          **config["config"]))
     elif config["model"] == "MaskedCELoss":
       self.loss = MaskedCELoss(config=MaskedCELossConfig(**config["config"]))
     elif config["model"] == "MaskedKLDiv":
-      self.loss = MaskedKLDivergence(config=MaskedKLDivergenceConfig(**config["config"]))
+      self.loss = MaskedKLDivergence(config=MaskedKLDivergenceConfig(
+          **config["config"]))
     elif config["model"] == "MaeLoss":
       self.loss = MaeLoss(config=MaeLossConfig(**config["config"]))
     else:

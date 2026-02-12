@@ -71,7 +71,8 @@ class WarmupLR(_LRScheduler):
       return [lr * step_num**-0.5 for lr in self.base_lrs]
     else:
       return [
-          lr * self.warmup_steps**0.5 * min(step_num**-0.5, step_num * self.warmup_steps**-1.5)
+          lr * self.warmup_steps**0.5 *
+          min(step_num**-0.5, step_num * self.warmup_steps**-1.5)
           for lr in self.base_lrs
       ]
 
@@ -119,7 +120,8 @@ class Eden(_LRScheduler):
     super().__init__(optimizer, last_epoch)
 
   def get_lr(self):
-    factor = ((self.last_epoch**2 + self.lr_batches**2) / self.lr_batches**2)**-0.5
+    factor = ((self.last_epoch**2 + self.lr_batches**2) /
+              self.lr_batches**2)**-0.5
     warmup_factor = (
         1.0 if self.last_epoch >= self.warmup_batches else self.warmup_start +
         (1.0 - self.warmup_start) * (self.last_epoch / self.warmup_batches)
@@ -151,8 +153,8 @@ class WarmupPolicy(_LRScheduler):
                max_steps=None,
                min_lr=0.0,
                last_epoch=-1):
-    assert not (warmup_steps is not None and
-                warmup_ratio is not None), "Either use particular number of step or ratio"
+    assert not (warmup_steps is not None and warmup_ratio
+                is not None), "Either use particular number of step or ratio"
     assert warmup_ratio is None or max_steps is not None, "If there is a ratio, there should be a total steps"
 
     # It is necessary to assign all attributes *before* __init__,
@@ -219,8 +221,8 @@ class WarmupHoldPolicy(WarmupPolicy):
                min_lr=0.0,
                last_epoch=-1):
 
-    assert not (hold_steps is not None and
-                hold_ratio is not None), "Either use particular number of step or ratio"
+    assert not (hold_steps is not None and hold_ratio
+                is not None), "Either use particular number of step or ratio"
     assert hold_ratio is None or max_steps is not None, "If there is a ratio, there should be a total steps"
 
     self.min_lr = min_lr
@@ -310,7 +312,14 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
             min_lr: Minimum learning rate.
     """
 
-  def __init__(self, optimizer, *, max_steps, decay_rate=0.5, min_lr=0.0, last_epoch=-1, **kwargs):
+  def __init__(self,
+               optimizer,
+               *,
+               max_steps,
+               decay_rate=0.5,
+               min_lr=0.0,
+               last_epoch=-1,
+               **kwargs):
 
     self.decay_rate = decay_rate
     super().__init__(optimizer=optimizer,
@@ -340,7 +349,8 @@ class NoamHoldAnnealing(WarmupHoldPolicy):
     ]
     return new_lrs
 
-  def _noam_hold_annealing(initial_lr, step, warmup_steps, hold_steps, decay_rate, min_lr):
+  def _noam_hold_annealing(initial_lr, step, warmup_steps, hold_steps,
+                           decay_rate, min_lr):
     # hold_steps = total number of steps to hold the LR, not the warmup + hold steps.
     T_warmup_decay = max(1, warmup_steps**decay_rate)
     T_hold_decay = max(1, (step - hold_steps)**decay_rate)
@@ -369,5 +379,5 @@ class LrSchedulerPool(Enum):
 
 def OptimSetup(config):
   # Optimizer and Scheduler Setup inferface
-  return OptimizerPool[config["optimizer"]["type"]].value, LrSchedulerPool[config["lr_scheduler"]
-                                                                           ["type"]].value
+  return OptimizerPool[config["optimizer"]["type"]].value, LrSchedulerPool[
+      config["lr_scheduler"]["type"]].value

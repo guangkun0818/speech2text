@@ -37,8 +37,8 @@ class TestJoiner(unittest.TestCase):
     predictor_out = torch.rand(4, 16, 256)
     tgts_length = torch.Tensor([8, 10, 9, 2])
 
-    output, boundary, ranges, simple_loss = self._unpruned_joiner(hidden, hidden_lengths,
-                                                                  predictor_out, tgts_length)
+    output, boundary, ranges, simple_loss = self._unpruned_joiner(
+        hidden, hidden_lengths, predictor_out, tgts_length)
 
     # Output shape (B, T, U, D)
     self.assertEqual(output.shape[1], 200)
@@ -57,8 +57,8 @@ class TestJoiner(unittest.TestCase):
     tgts_length = torch.Tensor([8, 10, 9, 2])
     tgts = torch.randint(1, 128, (4, 15))
 
-    output, boundary, ranges, simple_loss = self._pruned_joiner(hidden, hidden_lengths,
-                                                                predictor_out, tgts_length, tgts)
+    output, boundary, ranges, simple_loss = self._pruned_joiner(
+        hidden, hidden_lengths, predictor_out, tgts_length, tgts)
 
     # Output shape (B, T, U, D)
     self.assertEqual(output.shape[1], 200)

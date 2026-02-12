@@ -32,7 +32,8 @@ class MaskedCELoss(nn.Module):
     self._scale_factor = config.scale_factor
     self._label_smoothing = config.label_smoothing
 
-    self._ce_loss = nn.CrossEntropyLoss(reduction="none", label_smoothing=self._label_smoothing)
+    self._ce_loss = nn.CrossEntropyLoss(reduction="none",
+                                        label_smoothing=self._label_smoothing)
 
   def forward(self,
               logits: torch.Tensor,
@@ -50,7 +51,8 @@ class MaskedCELoss(nn.Module):
     # label start from 1 not 0, where 0 indicating mask_id
     max_seq_len = logits.size(1)
 
-    logits = logits.contiguous().reshape(-1, self._num_classes)  # (B * T, num_classes)
+    logits = logits.contiguous().reshape(
+        -1, self._num_classes)  # (B * T, num_classes)
     logits *= self._scale_factor
 
     valid_labels = ori_labels.contiguous().reshape(-1)

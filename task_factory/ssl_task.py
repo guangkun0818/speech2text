@@ -41,16 +41,20 @@ class SslTask(pl.LightningModule):
     self._logits_layer_config = config["logits_layer"]
     self._loss_config = config["loss"]
     assert self._loss_config["loss_select"] in (
-        "tot_loss", "mask_loss"), "'loss_select' should be chosen from 'tot_loss', 'mask_loss'"
+        "tot_loss", "mask_loss"
+    ), "'loss_select' should be chosen from 'tot_loss', 'mask_loss'"
     self._metric_config = config["metric"]
     self._optim_config = config["optim_setup"]
 
     # Build required training module respectivly
     self._frontend = self._get_frontend(copy.deepcopy(config["dataset"]))
-    self._global_cmvn = GlobalCmvnLayer(config=self._dataset_config)  # Register CMVN buffer
+    self._global_cmvn = GlobalCmvnLayer(
+        config=self._dataset_config)  # Register CMVN buffer
     self._ssl_layer = BestRQLayer(
-        layer_config=BestRQLayerConfig(**self._ssl_layer_config["layer_config"]),
-        masking_config=MaskingStrategyConfig(**self._ssl_layer_config["masking_config"]))
+        layer_config=BestRQLayerConfig(
+            **self._ssl_layer_config["layer_config"]),
+        masking_config=MaskingStrategyConfig(
+            **self._ssl_layer_config["masking_config"]))
     self._encoder = Encoder(self._encoder_config)
     self._logits_layer = Decoder(self._logits_layer_config)
     self._loss = Loss(self._loss_config)
@@ -74,9 +78,10 @@ class SslTask(pl.LightningModule):
                                  shuffle=True,
                                  drop_last=False)
     if self._dataset_config["use_bucket_sampler"]:
-      batch_sampler = DynamicBucketBatchSampler(sampler=sampler,
-                                                dataset=dataset,
-                                                **self._dataset_config["bucket_sampler_config"])
+      batch_sampler = DynamicBucketBatchSampler(
+          sampler=sampler,
+          dataset=dataset,
+          **self._dataset_config["bucket_sampler_config"])
       dataloader = DataLoader(dataset=dataset,
                               collate_fn=ssl_collate_fn,
                               batch_sampler=batch_sampler,
@@ -117,7 +122,8 @@ class SslTask(pl.LightningModule):
 
     # Output: {"masked_feats", "labels", "masked_dim"}
     output = self._ssl_layer(raw_feats, auged_feats, batch["feat_length"])
-    enc_out, enc_out_length = self._encoder(output["masked_feats"], batch["feat_length"])
+    enc_out, enc_out_length = self._encoder(output["masked_feats"],
+                                            batch["feat_length"])
 
     # Logits layer forward
     logits, logits_length = self._logits_layer(enc_out, enc_out_length)
@@ -132,7 +138,8 @@ class SslTask(pl.LightningModule):
       # Organize batch as Loss API
       loss_input_batch = {
           "logits": logits,
-          "ori_labels": output["labels"][codebook_id, :, :],  # Select each codebook
+          "ori_labels": output["labels"]
+                        [codebook_id, :, :],  # Select each codebook
           "mask": output["masked_dim"],
       }
       mask_loss = self._loss(loss_input_batch)  # Loss on Masked frames
@@ -140,7 +147,8 @@ class SslTask(pl.LightningModule):
 
       loss_input_batch = {
           "logits": logits,
-          "ori_labels": output["labels"][codebook_id, :, :],  # Select each codebook
+          "ori_labels": output["labels"]
+                        [codebook_id, :, :],  # Select each codebook
           "mask": logits_length,
       }
       tot_loss = self._loss(loss_input_batch)  # Loss on total sequence
@@ -158,7 +166,8 @@ class SslTask(pl.LightningModule):
     if batch_idx % 100 == 0:
       glog.info(
           "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} tot_loss: {} mask_loss: {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, tot_loss, mask_loss))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  tot_loss, mask_loss))
     train_info = {
         "train_loss": loss,
         "train_loss/tot_loss": tot_loss,
@@ -179,9 +188,11 @@ class SslTask(pl.LightningModule):
     raw_feats = self._global_cmvn(batch["raw_feat"])
 
     # Output: {"masked_feats", "labels", "masked_dim"}
-    output = self._ssl_layer(raw_feats, raw_feats,
-                             batch["feat_length"])  # Using raw_feat as auged_feats in eval stage.
-    enc_out, enc_out_length = self._encoder(output["masked_feats"], batch["feat_length"])
+    output = self._ssl_layer(
+        raw_feats, raw_feats,
+        batch["feat_length"])  # Using raw_feat as auged_feats in eval stage.
+    enc_out, enc_out_length = self._encoder(output["masked_feats"],
+                                            batch["feat_length"])
 
     # Logits layer forward
     logits, logits_length = self._logits_layer(enc_out, enc_out_length)
@@ -193,7 +204,8 @@ class SslTask(pl.LightningModule):
       # Organize batch as Loss API
       loss_input_batch = {
           "logits": logits,
-          "ori_labels": output["labels"][codebook_id, :, :],  # Select each codebook
+          "ori_labels": output["labels"]
+                        [codebook_id, :, :],  # Select each codebook
           "mask": output["masked_dim"],
       }
       mask_loss = self._loss(loss_input_batch)  # Loss on Masked frames
@@ -201,7 +213,8 @@ class SslTask(pl.LightningModule):
 
       loss_input_batch = {
           "logits": logits,
-          "ori_labels": output["labels"][codebook_id, :, :],  # Select each codebook
+          "ori_labels": output["labels"]
+                        [codebook_id, :, :],  # Select each codebook
           "mask": logits_length,
       }
       tot_loss = self._loss(loss_input_batch)  # Loss on total sequence
@@ -228,7 +241,8 @@ class SslTask(pl.LightningModule):
     if batch_idx % 50 == 0:
       glog.info(
           "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} tot_loss: {} mask_loss: {} metric: {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, tot_loss, mask_loss, accs))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  tot_loss, mask_loss, accs))
     train_info = {
         "val_loss": loss,
         "val_loss/tot_loss": tot_loss,
@@ -237,7 +251,8 @@ class SslTask(pl.LightningModule):
     }
     self.log_dict(train_info, sync_dist=True, prog_bar=True, logger=True)
 
-  def _normalize_metrics(self, metrics: List[Dict[str, float]]) -> Dict[str, float]:
+  def _normalize_metrics(self, metrics: List[Dict[str,
+                                                  float]]) -> Dict[str, float]:
 
     # Transfer list of accs into final accs;
     final_accs = {}
@@ -271,7 +286,8 @@ class SslTask(pl.LightningModule):
     Optimizer, LR_Scheduler = OptimSetup(self._optim_config)
     params = self.parameters()
     optimizer = Optimizer(params, **self._optim_config["optimizer"]["config"])
-    lr_scheduler = LR_Scheduler(optimizer=optimizer, **self._optim_config["lr_scheduler"]["config"])
+    lr_scheduler = LR_Scheduler(optimizer=optimizer,
+                                **self._optim_config["lr_scheduler"]["config"])
     return {
         "optimizer": optimizer,
         "lr_scheduler": {

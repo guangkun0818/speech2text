@@ -33,7 +33,8 @@ class AbcAsrInference(pl.LightningModule):
     # Setting up export test report
     self._export_path = infer_config["task"]["export_path"]
     curr_time = time.strftime("%Y%m%d-%H-%M-%S", time.localtime())
-    self._test_report = os.path.join(self._export_path, "test_report_{}".format(curr_time))
+    self._test_report = os.path.join(self._export_path,
+                                     "test_report_{}".format(curr_time))
 
     self._testset_json = infer_config["testset"]["test_data"]
     self._testset_config = infer_config["testset"]["config"]
@@ -46,7 +47,8 @@ class AbcAsrInference(pl.LightningModule):
   def test_dataloader(self):
     """ Set up eval dataloader. """
 
-    dataset = AsrTestDataset(testset_config=self._testset_config, testset_json=self._testset_json)
+    dataset = AsrTestDataset(testset_config=self._testset_config,
+                             testset_json=self._testset_json)
     sampler = DistributedSampler(dataset,
                                  num_replicas=dist.get_world_size(),
                                  rank=dist.get_rank(),
@@ -74,7 +76,9 @@ class AbcAsrInference(pl.LightningModule):
         test_report_f.write("\n")
 
   def on_test_end(self) -> None:
-    tot_wer = word_error_rate(self._predicton, self._reference, show_on_screen=False)
+    tot_wer = word_error_rate(self._predicton,
+                              self._reference,
+                              show_on_screen=False)
     glog.info("Total WER: {:.3f}".format(tot_wer * 100))
 
     with open(self._test_report, 'a+') as test_report_f:

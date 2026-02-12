@@ -51,7 +51,8 @@ class Subsampling(nn.Module):
           torch.nn.Conv2d(odim, odim, 3, 2),
           torch.nn.ReLU(),
       )
-      self.linear = torch.nn.Sequential(torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim))
+      self.linear = torch.nn.Sequential(
+          torch.nn.Linear(odim * (((idim - 1) // 2 - 1) // 2), odim))
       self.subsampled_length = self._subsampled_length_4
 
     elif subsampling_rate == 6:
@@ -75,31 +76,38 @@ class Subsampling(nn.Module):
           torch.nn.Conv2d(odim, odim, 3, 2),
           torch.nn.ReLU(),
       )
-      self.linear = torch.nn.Linear(odim * ((((idim - 1) // 2 - 1) // 2 - 1) // 2), odim)
+      self.linear = torch.nn.Linear(
+          odim * ((((idim - 1) // 2 - 1) // 2 - 1) // 2), odim)
       self.subsampled_length = self._subsampled_length_8
 
   def _subsampled_length_4(self, length: torch.Tensor):
     # Seperate as independent func to comply with torchscript model export
     # avoiding `¡felse`` structure of model for subsampling.
-    return torch.div(torch.div(length - 1, 2, rounding_mode="floor") - 1, 2, rounding_mode="floor")
+    return torch.div(torch.div(length - 1, 2, rounding_mode="floor") - 1,
+                     2,
+                     rounding_mode="floor")
 
   def _subsampled_length_6(self, length: torch.Tensor):
     # Same as above
-    return torch.div(torch.div(length - 1, 2, rounding_mode="floor") - 2, 3, rounding_mode="floor")
+    return torch.div(torch.div(length - 1, 2, rounding_mode="floor") - 2,
+                     3,
+                     rounding_mode="floor")
 
   def _subsampled_length_8(self, length: torch.Tensor):
     # Same as above
     return torch.div(
-        torch.div(torch.div(length - 1, 2, rounding_mode="floor") - 1, 2, rounding_mode="floor") -
-        1,
+        torch.div(torch.div(length - 1, 2, rounding_mode="floor") - 1,
+                  2,
+                  rounding_mode="floor") - 1,
         2,
         rounding_mode="floor")
 
   def _lengths_to_padding_mask(self, lengths: torch.Tensor) -> torch.Tensor:
     batch_size = lengths.shape[0]
     max_length = int(torch.max(lengths).item())
-    padding_mask = torch.arange(max_length, device=lengths.device, dtype=lengths.dtype).expand(
-        batch_size, max_length) >= lengths.unsqueeze(1)
+    padding_mask = torch.arange(
+        max_length, device=lengths.device, dtype=lengths.dtype).expand(
+            batch_size, max_length) >= lengths.unsqueeze(1)
     return padding_mask
 
   def forward(self, x: torch.Tensor, length: torch.Tensor):
@@ -110,7 +118,8 @@ class Subsampling(nn.Module):
     length = self.subsampled_length(length=length)
 
     # Masked padded residual
-    mask = self._lengths_to_padding_mask(length).unsqueeze(-1).repeat(1, 1, out.shape[-1])
+    mask = self._lengths_to_padding_mask(length).unsqueeze(-1).repeat(
+        1, 1, out.shape[-1])
     out.masked_fill_(mask, 0)
 
     return out, length
@@ -151,9 +160,10 @@ class Conformer(nn.Module):
       self._batchnorm = nn.BatchNorm1d(num_features=self._feats_dim)
 
     # Initialize Subsampling Module
-    self._subsampling_module = Subsampling(idim=self._feats_dim,
-                                           odim=self._input_dim,
-                                           subsampling_rate=self._subsampling_rate)
+    self._subsampling_module = Subsampling(
+        idim=self._feats_dim,
+        odim=self._input_dim,
+        subsampling_rate=self._subsampling_rate)
 
     # Initialize Conformer Module
     self._conformer_module = torchaudio.models.Conformer(
@@ -194,7 +204,8 @@ class Conformer(nn.Module):
     output = self._subsampling_module.inference(feats)
     # Intuitively, only BatchSize = 1 support during inference, generate
     # dummy_length needed in conformer_module forward.
-    dummy_length = torch.Tensor([output.shape[1]]).long().repeat(output.shape[0]).to(output.device)
+    dummy_length = torch.Tensor([output.shape[1]]).long().repeat(
+        output.shape[0]).to(output.device)
     output, _ = self._conformer_module(output, dummy_length)
     output = output.transpose(1, 2)  # (B, T, Dim) -> (B, dim, T)
     logits = self._output_layer(output)

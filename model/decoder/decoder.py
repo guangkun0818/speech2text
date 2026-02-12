@@ -34,5 +34,6 @@ class Decoder(nn.Module):
     if hasattr(self.decoder, "streaming_forward"):
       return self.decoder.streaming_forward(x, length, **config)
     else:
-      raise NotImplementedError("{} decoder does not support streaming_forward".format(
-          self.decoder.__class__.__name__))
+      raise NotImplementedError(
+          "{} decoder does not support streaming_forward".format(
+              self.decoder.__class__.__name__))

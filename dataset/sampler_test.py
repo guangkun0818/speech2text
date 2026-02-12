@@ -76,9 +76,10 @@ class TestDynamicBucketBatchSampler(unittest.TestCase):
                                  rank=0,
                                  shuffle=True,
                                  drop_last=False)
-    batch_sampler = DynamicBucketBatchSampler(sampler=sampler,
-                                              dataset=self._train_dataset,
-                                              **self._dataset_config["bucket_sampler_config"])
+    batch_sampler = DynamicBucketBatchSampler(
+        sampler=sampler,
+        dataset=self._train_dataset,
+        **self._dataset_config["bucket_sampler_config"])
     dataloader = DataLoader(
         dataset=self._train_dataset,
         collate_fn=asr_collate_fn,

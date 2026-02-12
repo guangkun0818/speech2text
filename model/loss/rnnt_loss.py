@@ -28,8 +28,8 @@ class RnntLoss(nn.Module):
                                clamp=config.clamp,
                                reduction=config.reduction)
 
-  def forward(self, logits: torch.Tensor, targets: torch.Tensor, logits_length: torch.Tensor,
-              targets_length: torch.Tensor):
+  def forward(self, logits: torch.Tensor, targets: torch.Tensor,
+              logits_length: torch.Tensor, targets_length: torch.Tensor):
     """ NOTE: RNNTLoss from 0.12.0 torchaudio did log_softmax within itself.
             Beware that raw targets should be expanded as (B, 1 + U) with 1 left 
             padding dim.
@@ -39,6 +39,7 @@ class RnntLoss(nn.Module):
                 logit_lengths: (batch) 
                 target_lengths: (batch)
         """
-    loss = self._rnnt_loss(logits, targets.to(torch.int32), logits_length.to(torch.int32),
+    loss = self._rnnt_loss(logits, targets.to(torch.int32),
+                           logits_length.to(torch.int32),
                            targets_length.to(torch.int32))
     return loss

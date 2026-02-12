@@ -24,7 +24,8 @@ class UnittestRnnLm(unittest.TestCase):
     self._rnn_lm = RnnLm(config=RnnLmConfig(**self._config))
 
   def test_zipformer_infos(self):
-    glog.info("Params of RnnLm: {}".format(sum(p.numel() for p in self._rnn_lm.parameters())))
+    glog.info("Params of RnnLm: {}".format(
+        sum(p.numel() for p in self._rnn_lm.parameters())))
 
   def test_rnn_lm_forward(self):
     vocab_size = self._config["num_symbols"]

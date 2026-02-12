@@ -23,7 +23,8 @@ from tools.model_average import model_average
 
 FLAGS = gflags.FLAGS
 
-gflags.DEFINE_string("inference_config", "config/debug_yaml", "Yaml configuratuon of inference.")
+gflags.DEFINE_string("inference_config", "config/debug_yaml",
+                     "Yaml configuratuon of inference.")
 
 
 class InferenceFactory(Enum):
@@ -40,7 +41,8 @@ def run_inference():
   FLAGS(sys.argv)
   with open(FLAGS.inference_config, 'r') as config_yaml:
     infer_config = yaml.load(config_yaml.read(), Loader=yaml.FullLoader)
-    train_config = yaml.load(open(infer_config["task"]["train_config"], 'r').read(),
+    train_config = yaml.load(open(infer_config["task"]["train_config"],
+                                  'r').read(),
                              Loader=yaml.FullLoader)
 
   # Use spm_model stored in task_export_dir instead of original configured
@@ -62,9 +64,11 @@ def run_inference():
 
   # Backup inference config and setup logging
   os.makedirs(INFER_EXPORT_PATH, exist_ok=True)
-  handler = logging.FileHandler(os.path.join(INFER_EXPORT_PATH, "inference.log"))
-  shutil.copyfile(FLAGS.inference_config,
-                  os.path.join(INFER_EXPORT_PATH, os.path.basename(FLAGS.inference_config)))
+  handler = logging.FileHandler(os.path.join(INFER_EXPORT_PATH,
+                                             "inference.log"))
+  shutil.copyfile(
+      FLAGS.inference_config,
+      os.path.join(INFER_EXPORT_PATH, os.path.basename(FLAGS.inference_config)))
   glog.init()
   glog.logger.addHandler(handler)
   glog.info(infer_config)
@@ -72,19 +76,20 @@ def run_inference():
   # Inference Setup
   glog.info("{} inference setting up....".format(TASK_TYPE))
   if infer_config["task"]["chkpt_aver"] == True:
-    model_average(os.path.abspath(os.path.join(train_config["task"]["export_path"], "checkpoints")),
+    model_average(os.path.abspath(
+        os.path.join(train_config["task"]["export_path"], "checkpoints")),
                   aver_best_k=TASK_CONFIG["aver_best_k"],
                   descending=TASK_CONFIG["descending"])
-    CHKPT_PATH = os.path.join(train_config["task"]["export_path"], "checkpoints", "averaged.chkpt")
+    CHKPT_PATH = os.path.join(train_config["task"]["export_path"],
+                              "checkpoints", "averaged.chkpt")
   else:
     assert infer_config[
         "chkpt_name"] is not None, "Since chkpt_aver not specified, please provide chkpt name."
-    CHKPT_PATH = os.path.join(train_config["task"]["export_path"], "checkpoints",
-                              TASK_CONFIG["chkpt_name"])
+    CHKPT_PATH = os.path.join(train_config["task"]["export_path"],
+                              "checkpoints", TASK_CONFIG["chkpt_name"])
 
-  asr_inference = InferenceFactory[TASK_TYPE].value.load_from_checkpoint(CHKPT_PATH,
-                                                                         train_config=train_config,
-                                                                         infer_config=infer_config)
+  asr_inference = InferenceFactory[TASK_TYPE].value.load_from_checkpoint(
+      CHKPT_PATH, train_config=train_config, infer_config=infer_config)
   trainer = pl.Trainer(logger=False, **infer_config["trainer"])
   trainer.test(asr_inference)
 

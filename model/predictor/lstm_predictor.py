@@ -34,14 +34,15 @@ class LstmPredictor(nn.Module):
     self._sos_token = config.num_symbols - 1
     self._blank_token = 0  # 0 is strictly set for both Ctc and Rnnt.
 
-    self._predictor = _Predictor(num_symbols=config.num_symbols,
-                                 output_dim=config.output_dim,
-                                 symbol_embedding_dim=config.symbol_embedding_dim,
-                                 num_lstm_layers=config.num_lstm_layers,
-                                 lstm_hidden_dim=config.lstm_hidden_dim,
-                                 lstm_layer_norm=config.lstm_layer_norm,
-                                 lstm_layer_norm_epsilon=config.lstm_layer_norm_epsilon,
-                                 lstm_dropout=config.lstm_dropout)
+    self._predictor = _Predictor(
+        num_symbols=config.num_symbols,
+        output_dim=config.output_dim,
+        symbol_embedding_dim=config.symbol_embedding_dim,
+        num_lstm_layers=config.num_lstm_layers,
+        lstm_hidden_dim=config.lstm_hidden_dim,
+        lstm_layer_norm=config.lstm_layer_norm,
+        lstm_layer_norm_epsilon=config.lstm_layer_norm_epsilon,
+        lstm_dropout=config.lstm_dropout)
 
   @property
   def sos_token(self) -> int:
@@ -88,14 +89,15 @@ class LstmPredictor(nn.Module):
   @torch.jit.export
   @torch.inference_mode(mode=True)
   def streaming_step(
-      self, input: torch.Tensor,
-      state: List[List[torch.Tensor]]) -> Tuple[torch.Tensor, List[List[torch.Tensor]]]:
+      self, input: torch.Tensor, state: List[List[torch.Tensor]]
+  ) -> Tuple[torch.Tensor, List[List[torch.Tensor]]]:
     # Streaming inference step of Predictor, accept 1 token input only,
     # auto-aggressive, you gotcha.
     assert input.shape[0] == 1  # only support batchsize = 1
     assert input.shape[1] == 1  # only support sequence length = 1
 
-    lengths = torch.tensor([input.shape[1]]).to(input.device)  # Create dummy length
+    lengths = torch.tensor([input.shape[1]
+                           ]).to(input.device)  # Create dummy length
     if len(state) == 0:
       # Empty [] indicating init state
       output, _, state_out = self._predictor(input, lengths, None)

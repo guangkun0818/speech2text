@@ -24,7 +24,9 @@ class DynamicBucketBatchSampler(BatchSampler):
                key: str = "duration",
                min_batch_size: int = 8,
                volume_threshold: int = 800) -> None:
-    super(DynamicBucketBatchSampler, self).__init__(sampler, min_batch_size, drop_last=False)
+    super(DynamicBucketBatchSampler, self).__init__(sampler,
+                                                    min_batch_size,
+                                                    drop_last=False)
 
     self._key = key
     self._dataset = dataset
@@ -46,9 +48,9 @@ class DynamicBucketBatchSampler(BatchSampler):
     interval_step = (float(high_bound) - float(low_bound)) / float(num_bucket)
 
     for idx in self._buckets:
-      self._buckets[idx]["bounds"] = (self._buckets[idx]["bucket_id"] * interval_step + low_bound,
-                                      (self._buckets[idx]["bucket_id"] + 1) * interval_step +
-                                      low_bound)
+      self._buckets[idx]["bounds"] = (
+          self._buckets[idx]["bucket_id"] * interval_step + low_bound,
+          (self._buckets[idx]["bucket_id"] + 1) * interval_step + low_bound)
 
     glog.info(
         "Buckets created on rank {} with low_bound = {} and high_bound = {}, once created it will be maintained through training."
@@ -75,8 +77,9 @@ class DynamicBucketBatchSampler(BatchSampler):
           self._buckets[bucket_id]["data"] = []
           self._buckets[bucket_id]["volume"] = 0.0
 
-      glog.info("Data slice of rank {} fully comsumed, continue training within this epoch".format(
-          self.sampler.rank))
+      glog.info(
+          "Data slice of rank {} fully comsumed, continue training within this epoch"
+          .format(self.sampler.rank))
 
   def __len__(self) -> int:
     """ The __len__ determine the number of iteration within one epoch. But in this 

@@ -28,7 +28,8 @@ class KaldiFbankTest(unittest.TestCase):
             "samplerate": 16000,
         },
     }
-    self._kaldi_frontend = FeatType[self._config["feat_type"]].value(**self._config["feat_config"])
+    self._kaldi_frontend = FeatType[self._config["feat_type"]].value(
+        **self._config["feat_config"])
 
   def test_frontend_wave_feature(self):
     # Frontend forward unittest
@@ -41,7 +42,8 @@ class KaldiFbankTest(unittest.TestCase):
     # Frontend torchscript export unittest
 
     pcms = torch.rand(1, 32000)
-    torchscript_frontend = torch.jit.trace(self._kaldi_frontend, example_inputs=pcms)
+    torchscript_frontend = torch.jit.trace(self._kaldi_frontend,
+                                           example_inputs=pcms)
     torchscript_frontend = torch.jit.script(torchscript_frontend)
 
     # Torchscript frontend precision check
@@ -67,17 +69,20 @@ class TestLhotseKaldiFeatFbank(unittest.TestCase):
         },
     }
 
-    self._frontend = FeatType[self._config["feat_type"]].value(**self._config["feat_config"])
+    self._frontend = FeatType[self._config["feat_type"]].value(
+        **self._config["feat_config"])
 
   def test_frontend_wave_feature(self):
     # Frontend forward unittest
-    pcms, _ = torchaudio.load(self._test_data_1, normalize=self._frontend.pcm_normalize)
+    pcms, _ = torchaudio.load(self._test_data_1,
+                              normalize=self._frontend.pcm_normalize)
     feats = self._frontend(pcms)
     glog.info("Fbank feature: {}".format(feats.shape))
     self.assertEqual(feats.shape[-1], self._frontend.feat_dim)
 
   def test_streaming_frontend(self):
-    pcms, _ = torchaudio.load(self._test_data_1, normalize=self._frontend.pcm_normalize)
+    pcms, _ = torchaudio.load(self._test_data_1,
+                              normalize=self._frontend.pcm_normalize)
     full_feats = self._frontend(pcms)
 
     # Refer to 77 frames of feats given 25ms frame_length and 10ms frame_shift.
@@ -89,8 +94,9 @@ class TestLhotseKaldiFeatFbank(unittest.TestCase):
     self.assertEqual(chunk_feats_1st.shape[0], 77)  # 77 frames.
     self.assertTrue(torch.allclose(full_feats[:77, :], chunk_feats_1st))
 
-    chunk_feats_2nd = self._frontend(pcms[:, pcm_chunk_size - pcm_cache_size:pcm_chunk_size * 2 -
-                                          pcm_cache_size])
+    chunk_feats_2nd = self._frontend(
+        pcms[:, pcm_chunk_size - pcm_cache_size:pcm_chunk_size * 2 -
+             pcm_cache_size])
     glog.info("Fbank feature: {}".format(chunk_feats_2nd.shape))
     self.assertEqual(chunk_feats_2nd.shape[0], 77)  # 77 frames.
     self.assertTrue(torch.allclose(full_feats[77:77 * 2, :], chunk_feats_2nd))
@@ -109,11 +115,13 @@ class TestTorchScriptKaldiWaveFeature(unittest.TestCase):
         },
     }
 
-    self._frontend = FeatType[self._config["feat_type"]].value(**self._config["feat_config"])
+    self._frontend = FeatType[self._config["feat_type"]].value(
+        **self._config["feat_config"])
 
   def test_frontend_wave_feature(self):
     # Frontend forward unittest
-    pcms, _ = torchaudio.load(self._test_data_1, normalize=self._frontend.pcm_normalize)
+    pcms, _ = torchaudio.load(self._test_data_1,
+                              normalize=self._frontend.pcm_normalize)
     feats = self._frontend(pcms)
     glog.info("Fbank feature: {}".format(feats.shape))
     self.assertEqual(feats.shape[-1], self._frontend.feat_dim)

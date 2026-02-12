@@ -70,8 +70,9 @@ class Tokenizer(abc.ABC):
 @dataclasses.dataclass
 class CharTokenizerConfig:
   """ Char based Tokenizer Config, should be configured from yaml """
-  labels: tuple = ("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p",
-                   "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'", " ")
+  labels: tuple = ("a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l",
+                   "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x",
+                   "y", "z", "'", " ")
 
 
 @dataclasses.dataclass
@@ -113,7 +114,8 @@ class SubwordTokenizer(Tokenizer):
     return labels
 
   def encode(self, text: str) -> torch.Tensor:
-    return self._text_to_vector(self._sp.EncodeAsPieces(text, emit_unk_piece=True))
+    return self._text_to_vector(
+        self._sp.EncodeAsPieces(text, emit_unk_piece=True))
 
   def decode(self, vector: torch.Tensor) -> str:
     return self._sp.DecodePieces(self._vector_to_tokens(vector))
@@ -127,7 +129,8 @@ class SubwordTokenizer(Tokenizer):
 
   def decode_from_tokens(self, tokens: List[str]) -> str:
     for char in tokens:
-      assert char in self.labels, "Out of vocabulary detects with '{}'".format(char)
+      assert char in self.labels, "Out of vocabulary detects with '{}'".format(
+          char)
     return self._sp.DecodePieces(tokens)
 
 
@@ -159,7 +162,8 @@ class CharTokenizer(Tokenizer):
 
   def decode_from_tokens(self, tokens: List[str]) -> str:
     for char in tokens:
-      assert char in self.labels, "Out of vocabulary detects with '{}'".format(char)
+      assert char in self.labels, "Out of vocabulary detects with '{}'".format(
+          char)
     return ''.join(tokens)
 
 
@@ -176,13 +180,21 @@ def TokenizerSetup(config) -> Tokenizer:
 def batch(batch: Dict[str, List]) -> Dict[str, torch.Tensor]:
   """ Padding dynamic length of inputs and stack as off-to-go batch. """
   if "feat" in batch and "label" in batch:
-    batch["feat"] = pad_sequence(batch["feat"], batch_first=True, padding_value=0)
+    batch["feat"] = pad_sequence(batch["feat"],
+                                 batch_first=True,
+                                 padding_value=0)
     batch["feat_length"] = torch.Tensor(batch["feat_length"]).long()
-    batch["label"] = pad_sequence(batch["label"], batch_first=True, padding_value=0)
+    batch["label"] = pad_sequence(batch["label"],
+                                  batch_first=True,
+                                  padding_value=0)
     batch["label_length"] = torch.Tensor(batch["label_length"]).long()
   elif "raw_feat" in batch and "auged_feat" in batch:
-    batch["raw_feat"] = pad_sequence(batch["raw_feat"], batch_first=True, padding_value=0)
-    batch["auged_feat"] = pad_sequence(batch["auged_feat"], batch_first=True, padding_value=0)
+    batch["raw_feat"] = pad_sequence(batch["raw_feat"],
+                                     batch_first=True,
+                                     padding_value=0)
+    batch["auged_feat"] = pad_sequence(batch["auged_feat"],
+                                       batch_first=True,
+                                       padding_value=0)
     batch["feat_length"] = torch.Tensor(batch["feat_length"]).long()
 
   return batch

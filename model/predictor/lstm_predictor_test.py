@@ -59,7 +59,8 @@ class TestLstmPredictor(unittest.TestCase):
     for i in range(2):
       output, lengths, states = ts_predictor(inputs, lengths, states)
       # Unittest of streaming step
-      output, states = ts_predictor.streaming_step(inputs[i:i + 1, i:i + 1], states)
+      output, states = ts_predictor.streaming_step(inputs[i:i + 1, i:i + 1],
+                                                   states)
 
 
 if __name__ == "__main__":

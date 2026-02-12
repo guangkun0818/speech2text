@@ -12,7 +12,8 @@ from torch.utils.data import DataLoader
 from dataset.dataset import AsrTrainDataset, AsrEvalDataset, AsrTestDataset
 from dataset.dataset import SslTrainDataset, SslEvalDataset
 from dataset.dataset import LmDataset
-from dataset.dataset import (asr_collate_fn, asr_test_collate_fn, ssl_collate_fn, lm_collate_fn)
+from dataset.dataset import (asr_collate_fn, asr_test_collate_fn,
+                             ssl_collate_fn, lm_collate_fn)
 from dataset.utils import TokenizerSetup
 
 
@@ -68,7 +69,8 @@ class TestAsrFbankSubwordDataset(unittest.TestCase):
     self._eval_dataset = AsrEvalDataset(self._dataset_config, self._tokenzier)
 
   def test_dataset_info(self):
-    glog.info("Total duration: {}".format(self._train_dataset.total_data_amount))
+    glog.info("Total duration: {}".format(
+        self._train_dataset.total_data_amount))
     glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
     glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
@@ -114,8 +116,9 @@ class TestAsrPcmCharDataset(unittest.TestCase):
         "type": "char",
         "config": {
             "labels": [
-                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q",
-                "r", "s", "t", "u", "v", "w", "x", "y", "z", "'", " "
+                "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+                "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+                "'", " "
             ]
         }
     }
@@ -155,7 +158,8 @@ class TestAsrPcmCharDataset(unittest.TestCase):
     self._eval_dataset = AsrEvalDataset(self._dataset_config, self._tokenzier)
 
   def test_dataset_info(self):
-    glog.info("Total duration: {}".format(self._train_dataset.total_data_amount))
+    glog.info("Total duration: {}".format(
+        self._train_dataset.total_data_amount))
     glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
     glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
@@ -270,7 +274,8 @@ class TestSslTrainEvalDataset(unittest.TestCase):
     self._eval_dataset = SslEvalDataset(self._dataset_config)
 
   def test_dataset_info(self):
-    glog.info("Total duration: {}".format(self._train_dataset.total_data_amount))
+    glog.info("Total duration: {}".format(
+        self._train_dataset.total_data_amount))
     glog.info("Min duration: {}".format(self._train_dataset.lower_bound))
     glog.info("Max duration: {}".format(self._train_dataset.high_bound))
 
@@ -327,13 +332,15 @@ class TestLmDataset(unittest.TestCase):
         "batch_size": 256,
     }
     self._tokenzier = TokenizerSetup(self._tokenizer_config)
-    self._train_dataset = LmDataset(dataset_json=self._dataset_config["train_data"],
-                                    token_min_filter=self._dataset_config["token_min_filter"],
-                                    token_max_filter=self._dataset_config["token_max_filter"],
-                                    tokenizer=self._tokenzier)
+    self._train_dataset = LmDataset(
+        dataset_json=self._dataset_config["train_data"],
+        token_min_filter=self._dataset_config["token_min_filter"],
+        token_max_filter=self._dataset_config["token_max_filter"],
+        tokenizer=self._tokenzier)
 
   def test_dataset_info(self):
-    glog.info("Total num tokens: {}".format(self._train_dataset.total_data_amount))
+    glog.info("Total num tokens: {}".format(
+        self._train_dataset.total_data_amount))
     glog.info("Min token num: {}".format(self._train_dataset.lower_bound))
     glog.info("Max token num: {}".format(self._train_dataset.high_bound))
 

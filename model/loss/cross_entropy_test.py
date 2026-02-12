@@ -16,7 +16,8 @@ class TestMaskedCELoss(unittest.TestCase):
 
   def setUp(self) -> None:
     self._loss_config = {"num_classes": 8193}
-    self._masked_ce_loss = MaskedCELoss(config=MaskedCELossConfig(**self._loss_config))
+    self._masked_ce_loss = MaskedCELoss(config=MaskedCELossConfig(
+        **self._loss_config))
 
   @parameterized.expand([(723,), (671,), (437,)])
   def test_loss_forward(self, length):

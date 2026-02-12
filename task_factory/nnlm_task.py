@@ -47,11 +47,13 @@ class NnLmTask(pl.LightningModule):
   def train_dataloader(self):
     """ Set up train dataloader. """
 
-    dataset = LmDataset(dataset_json=self._dataset_config["train_data"],
-                        token_min_filter=self._dataset_config["token_min_filter"],
-                        token_max_filter=self._dataset_config["token_max_filter"],
-                        tokenizer=self._tokenizer)
-    glog.info("Train dataset total tokens: {}.".format(dataset.total_data_amount))
+    dataset = LmDataset(
+        dataset_json=self._dataset_config["train_data"],
+        token_min_filter=self._dataset_config["token_min_filter"],
+        token_max_filter=self._dataset_config["token_max_filter"],
+        tokenizer=self._tokenizer)
+    glog.info("Train dataset total tokens: {}.".format(
+        dataset.total_data_amount))
 
     sampler = DistributedSampler(dataset,
                                  num_replicas=dist.get_world_size(),
@@ -59,9 +61,10 @@ class NnLmTask(pl.LightningModule):
                                  shuffle=True,
                                  drop_last=False)
     if self._dataset_config["use_bucket_sampler"]:
-      batch_sampler = DynamicBucketBatchSampler(sampler=sampler,
-                                                dataset=dataset,
-                                                **self._dataset_config["bucket_sampler_config"])
+      batch_sampler = DynamicBucketBatchSampler(
+          sampler=sampler,
+          dataset=dataset,
+          **self._dataset_config["bucket_sampler_config"])
       dataloader = DataLoader(dataset=dataset,
                               collate_fn=lm_collate_fn,
                               batch_sampler=batch_sampler,
@@ -77,11 +80,13 @@ class NnLmTask(pl.LightningModule):
   def val_dataloader(self):
     """ Set up eval dataloader. """
 
-    dataset = LmDataset(dataset_json=self._dataset_config["eval_data"],
-                        token_min_filter=self._dataset_config["token_min_filter"],
-                        token_max_filter=self._dataset_config["token_max_filter"],
-                        tokenizer=self._tokenizer)
-    glog.info("Eval dataset total tokens: {}.".format(dataset.total_data_amount))
+    dataset = LmDataset(
+        dataset_json=self._dataset_config["eval_data"],
+        token_min_filter=self._dataset_config["token_min_filter"],
+        token_max_filter=self._dataset_config["token_max_filter"],
+        tokenizer=self._tokenizer)
+    glog.info("Eval dataset total tokens: {}.".format(
+        dataset.total_data_amount))
 
     sampler = DistributedSampler(dataset,
                                  num_replicas=dist.get_world_size(),
@@ -95,7 +100,8 @@ class NnLmTask(pl.LightningModule):
                             num_workers=4)
     return dataloader
 
-  def _generate_nnlm_input(self, tokens: torch.Tensor, tokens_length: torch.Tensor):
+  def _generate_nnlm_input(self, tokens: torch.Tensor,
+                           tokens_length: torch.Tensor):
     """ Generate Lm teacher-forcing auto-regressive input and label:
             Original tokens: [3, 6, 1, 7, 90]
             -> Input: [3, 6, 1, 7]
@@ -126,8 +132,9 @@ class NnLmTask(pl.LightningModule):
     loss = self._loss(loss_input_batch)
 
     if batch_idx % 100 == 0:
-      glog.info("Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}".format(
-          self.current_epoch, batch_idx, self.global_step, loss))
+      glog.info(
+          "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}".
+          format(self.current_epoch, batch_idx, self.global_step, loss))
     train_info = {
         "train_loss": loss,
     }
@@ -153,8 +160,9 @@ class NnLmTask(pl.LightningModule):
                         masked_dim=make_non_pad_mask(logits_length).long())
 
     if batch_idx % 50 == 0:
-      glog.info("Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} metric: {}".format(
-          self.current_epoch, batch_idx, self.global_step, loss, accs))
+      glog.info(
+          "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} metric: {}"
+          .format(self.current_epoch, batch_idx, self.global_step, loss, accs))
     train_info = {"val_loss": loss, **accs}
     self.log_dict(train_info, sync_dist=True, prog_bar=True, logger=True)
 
@@ -173,7 +181,8 @@ class NnLmTask(pl.LightningModule):
     Optimizer, LR_Scheduler = OptimSetup(self._optim_config)
     params = self.parameters()
     optimizer = Optimizer(params, **self._optim_config["optimizer"]["config"])
-    lr_scheduler = LR_Scheduler(optimizer=optimizer, **self._optim_config["lr_scheduler"]["config"])
+    lr_scheduler = LR_Scheduler(optimizer=optimizer,
+                                **self._optim_config["lr_scheduler"]["config"])
     return {
         "optimizer": optimizer,
         "lr_scheduler": {

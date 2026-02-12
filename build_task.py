@@ -29,7 +29,8 @@ from task_factory.nnlm_task import NnLmTask
 
 FLAGS = gflags.FLAGS
 
-gflags.DEFINE_string("training_config", "config/debug_yaml", "Yaml configuratuon of task.")
+gflags.DEFINE_string("training_config", "config/debug_yaml",
+                     "Yaml configuratuon of task.")
 
 
 @unique
@@ -64,8 +65,9 @@ def run_task():
 
   # Back up training config yaml.
   glog.info("{} Task building....".format(TASK_TYPE))
-  shutil.copyfile(FLAGS.training_config,
-                  os.path.join(TASK_EXPORT_PATH, os.path.basename(FLAGS.training_config)))
+  shutil.copyfile(
+      FLAGS.training_config,
+      os.path.join(TASK_EXPORT_PATH, os.path.basename(FLAGS.training_config)))
 
   glog.info(config)
 
@@ -80,12 +82,12 @@ def run_task():
   if config["finetune"]["base_model"]:
     # If base model of finetune is set, then finetune from base model
     if os.path.isfile(config["finetune"]["base_model"]):
-      task = TaskFactory[TASK_TYPE].value.load_from_checkpoint(config["finetune"]["base_model"],
-                                                               config=config,
-                                                               strict=False)
+      task = TaskFactory[TASK_TYPE].value.load_from_checkpoint(
+          config["finetune"]["base_model"], config=config, strict=False)
     elif os.path.isdir(config["finetune"]["base_model"]):
       model_average(config["finetune"]["base_model"])
-      pretrain_model = os.path.join(config["finetune"]["base_model"], "averaged.chkpt")
+      pretrain_model = os.path.join(config["finetune"]["base_model"],
+                                    "averaged.chkpt")
       task = TaskFactory[TASK_TYPE].value.load_from_checkpoint(pretrain_model,
                                                                config=config,
                                                                strict=False)
@@ -93,12 +95,13 @@ def run_task():
     task = TaskFactory[TASK_TYPE].value(config)
 
   # ---- Set up callbacks and tensorboard logs ----
-  chkpt_filename = TASK_NAME + "-{epoch}-{val_loss:.2f}" + "-{%s:.2f}" % config["callbacks"][
-      "model_chkpt_config"]["monitor"]
+  chkpt_filename = TASK_NAME + "-{epoch}-{val_loss:.2f}" + "-{%s:.2f}" % config[
+      "callbacks"]["model_chkpt_config"]["monitor"]
   chkpt_callback = callbacks.ModelCheckpoint(
       dirpath=os.path.join(TASK_EXPORT_PATH, "checkpoints"),
       filename=chkpt_filename,
-      **config["callbacks"]["model_chkpt_config"])  # Callbacks save chkpt of model.
+      **config["callbacks"]
+      ["model_chkpt_config"])  # Callbacks save chkpt of model.
 
   lr_monitor = callbacks.LearningRateMonitor(logging_interval='step')
   tb_logger = pl_loggers.TensorBoardLogger(TASK_EXPORT_PATH)
@@ -124,10 +127,12 @@ def run_task():
     else:
       # If pre_compute_cmvn provide, backup global_mean and global_istd.
       shutil.copyfile(
-          os.path.join(config["callbacks"]["global_cmvn"]["pre_compute_cmvn"], "global_mean.t"),
+          os.path.join(config["callbacks"]["global_cmvn"]["pre_compute_cmvn"],
+                       "global_mean.t"),
           os.path.join(TASK_EXPORT_PATH, "global_mean.t"))
       shutil.copyfile(
-          os.path.join(config["callbacks"]["global_cmvn"]["pre_compute_cmvn"], "global_istd.t"),
+          os.path.join(config["callbacks"]["global_cmvn"]["pre_compute_cmvn"],
+                       "global_istd.t"),
           os.path.join(TASK_EXPORT_PATH, "global_istd.t"))
       load_cmvn = callbacks.LoadGlobalCmvn(cmvn_dir=TASK_EXPORT_PATH)
       callback_funcs.append(load_cmvn)
