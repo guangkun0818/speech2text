@@ -44,17 +44,20 @@ class RnnLm(nn.Module):
                               dropout=self._dropout,
                               bidirectional=self._bidirectional)
 
-    self._logits_layer = nn.Linear(in_features=self._embedding_dim, out_features=self._num_symbols)
+    self._logits_layer = nn.Linear(in_features=self._embedding_dim,
+                                   out_features=self._num_symbols)
 
   def init_states(self, beam_size):
     # Initialize rnn cache when streaming inference start. Batch size = beam_size which
     # corresponding to decoding setting within asr_system.
     # LSTM cache: Tuple[torch.Tensor, torch.Tensor]
     states = (torch.zeros(self._num_rnn_layer, beam_size, self._embedding_dim),
-              torch.zeros(self._num_rnn_layer, beam_size, self._embedding_dim))  # h_0, c_0
+              torch.zeros(self._num_rnn_layer, beam_size,
+                          self._embedding_dim))  # h_0, c_0
     return states
 
-  def forward(self, x: torch.Tensor, x_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+  def forward(self, x: torch.Tensor,
+              x_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     x = self._embedding(x)
     x, _ = self._rnn_layer(x)
     x = self._logits_layer(x)
@@ -72,7 +75,8 @@ class RnnLm(nn.Module):
     logits, tokens_length = self.forward(tokens, tokens_length)
     log_probs = F.log_softmax(logits, dim=-1)
 
-    tgt_log_probs = log_probs[:, :-1].gather(2, tokens[:, 1:].unsqueeze(2)).squeeze(2)  # (B, T)
+    tgt_log_probs = log_probs[:, :-1].gather(
+        2, tokens[:, 1:].unsqueeze(2)).squeeze(2)  # (B, T)
     tgt_masks = make_non_pad_mask(tokens_length - 1)
 
     scores = torch.sum(tgt_log_probs * tgt_masks, dim=-1)

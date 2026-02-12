@@ -86,7 +86,8 @@ class StatelessPredictor(nn.Module):
     bs = input.shape[0]
     state = state.repeat(bs, 1).to(input.device)  # (B, context_size - 1)
     input = self._left_padding(input)
-    ctxed_input = torch.concat([state, input], dim=1)  # (B, context_size - 1 + 1 + U)
+    ctxed_input = torch.concat([state, input],
+                               dim=1)  # (B, context_size - 1 + 1 + U)
     cache_pos = ctxed_input.shape[1] - self._context_size
     out_state = ctxed_input[:, cache_pos:]
 

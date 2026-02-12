@@ -198,7 +198,11 @@ class RnntGreedyDecoding(DecodingMethod):
             joiner: Joiner Module of Rnnt
     """
 
-  def __init__(self, tokenizer: Tokenizer, predictor: Predictor, joiner: Joiner, max_token_step=10):
+  def __init__(self,
+               tokenizer: Tokenizer,
+               predictor: Predictor,
+               joiner: Joiner,
+               max_token_step=10):
 
     self._tokenizer = tokenizer
     self._predictor = predictor
@@ -207,12 +211,13 @@ class RnntGreedyDecoding(DecodingMethod):
     # decoding will cost too much time on eval stage when model just inited.
     self._max_token_step = max_token_step
     assert hasattr(self._predictor, "streaming_step") and hasattr(
-        self._joiner,
-        "streaming_step"), "Predictor and Joiner should impl streaming_step for decoding."
+        self._joiner, "streaming_step"
+    ), "Predictor and Joiner should impl streaming_step for decoding."
 
   def _check_blank(self, pred_token: torch.Tensor) -> bool:
     # Internal func to check if predicted token is <blank_id>, whose index == 0
-    return torch.allclose(pred_token, torch.zeros(1, 1).long().to(pred_token.device))
+    return torch.allclose(pred_token,
+                          torch.zeros(1, 1).long().to(pred_token.device))
 
   def decode(self, hidden_states: torch.Tensor) -> str:
     # Rnnt greedy decoding. Here only support Batchsize = 1
@@ -225,18 +230,21 @@ class RnntGreedyDecoding(DecodingMethod):
     pred_state = self._predictor.init_state()
     tot_time_steps = hidden_states.shape[1]
     curr_time_step = 0
-    curr_token = torch.Tensor([[0]
-                              ]).long().to(hidden_states.device)  # init_token is <blank_id> (1, 1)
+    curr_token = torch.Tensor([[0]]).long().to(
+        hidden_states.device)  # init_token is <blank_id> (1, 1)
     num_token_step = 0  # Num of token step with in one time step
     # Compute pred out in advance
-    pred_out, pred_state = self._predictor.streaming_step(curr_token, pred_state)
+    pred_out, pred_state = self._predictor.streaming_step(
+        curr_token, pred_state)
     decoded_result = []  # cache result.
 
     while curr_time_step < tot_time_steps:
       # After consuming all hidden_state, decoding end.
-      enc_out = hidden_states[:, curr_time_step:curr_time_step + 1, :]  # (1, 1, D)
+      enc_out = hidden_states[:,
+                              curr_time_step:curr_time_step + 1, :]  # (1, 1, D)
       pred_token = self._joiner.streaming_step(enc_out, pred_out)  # (1, D)
-      pred_token = pred_token.argmax(dim=-1).unsqueeze(0)  # pick the argmax greedily
+      pred_token = pred_token.argmax(dim=-1).unsqueeze(
+          0)  # pick the argmax greedily
       if self._check_blank(pred_token) or num_token_step > self._max_token_step:
         # If <blank_id> predicted or num token step reach the predefined limit of
         # max_token_step, move to next time_step (lattice move rightward). Token_step
@@ -249,7 +257,8 @@ class RnntGreedyDecoding(DecodingMethod):
         # time_step maintained, num_token_step update.
         num_token_step += 1
         curr_token = pred_token
-        pred_out, pred_state = self._predictor.streaming_step(curr_token, pred_state)
+        pred_out, pred_state = self._predictor.streaming_step(
+            curr_token, pred_state)
         decoded_result.append(pred_token.item())
         continue
 
@@ -307,8 +316,8 @@ class RnntBeamDecoding(DecodingMethod):
     self._decoding_state = None
 
     assert hasattr(self._predictor, "streaming_step") and hasattr(
-        self._joiner,
-        "streaming_step"), "Predictor and Joiner should impl streaming_step for decoding."
+        self._joiner, "streaming_step"
+    ), "Predictor and Joiner should impl streaming_step for decoding."
 
   def reset(self, device: torch.device):
     # Init decoding state
@@ -343,10 +352,11 @@ class RnntBeamDecoding(DecodingMethod):
 
     while curr_time_step < tot_time_steps:
       # After consuming all hidden_state, decoding session end.
-      enc_out = hidden_states[:, curr_time_step:curr_time_step + 1, :]  #（1, 1, D）
+      enc_out = hidden_states[:,
+                              curr_time_step:curr_time_step + 1, :]  #（1, 1, D）
 
-      log_probs = self._joiner.streaming_step(enc_out,
-                                              self._build_beam_pred_out())  # (self._beam_size, D)
+      log_probs = self._joiner.streaming_step(
+          enc_out, self._build_beam_pred_out())  # (self._beam_size, D)
 
       self._update_beams(log_probs)
 
@@ -359,8 +369,8 @@ class RnntBeamDecoding(DecodingMethod):
           # beam, given condition that each time step emit no more one token in this
           # decoding impl.
           pred_out, pred_state = self._predictor.streaming_step(
-              torch.tensor([[beam.decoded_tokens[-1]]]).long().to(hidden_states.device),
-              beam.pred_state)
+              torch.tensor([[beam.decoded_tokens[-1]]
+                           ]).long().to(hidden_states.device), beam.pred_state)
           beam.end_with_blank = True
           beam.pred_state = pred_state
           beam.pred_out = pred_out
@@ -397,7 +407,8 @@ class RnntBeamDecoding(DecodingMethod):
                           score=beam.score + log_probs[beam_id][token_id],
                           pred_state=beam.pred_state))
     # Prune beam
-    self._decoding_state.beams = sorted(new_beams, key=lambda x: x.score,
+    self._decoding_state.beams = sorted(new_beams,
+                                        key=lambda x: x.score,
                                         reverse=True)[:self._beam_size]
     # Best beam
     self._decoding_state.best_beam = self._decoding_state.beams[0]

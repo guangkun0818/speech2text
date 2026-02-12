@@ -26,10 +26,12 @@ class Projector(nn.Module):
   def __init__(self, config: ProjectorConfig) -> None:
     super(Projector, self).__init__()
 
-    self._fc = nn.Linear(in_features=config.input_dim, out_features=config.output_dim)
+    self._fc = nn.Linear(in_features=config.input_dim,
+                         out_features=config.output_dim)
     self._dropout = nn.Dropout(p=config.dropout_p)
 
-  def forward(self, x: torch.Tensor, length: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+  def forward(self, x: torch.Tensor,
+              length: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     # Training graph
     output = self._dropout(self._fc(x))
     return output, length

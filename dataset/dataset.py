@@ -37,7 +37,8 @@ class BaseDataset(Dataset):
     self._total_duration = 0.0
     self._min_duration = float("inf")
     self._max_duration = -float("inf")
-    self._dataset = self._make_dataset_from_json(dataset_json, dur_min_filter, dur_max_filter)
+    self._dataset = self._make_dataset_from_json(dataset_json, dur_min_filter,
+                                                 dur_max_filter)
 
     # Load noise set if add noise applied
     self._noise_dataset = []
@@ -106,25 +107,30 @@ class AsrTrainDataset(BaseDataset):
   """ ASR TrainDataset with Data Augementation"""
 
   def __init__(self, config, tokenizer: utils.TokenizerSetup) -> None:
-    super(AsrTrainDataset, self).__init__(dataset_json=config["train_data"],
-                                          dur_min_filter=config["dur_min_filter"],
-                                          dur_max_filter=config["dur_max_filter"],
-                                          noiseset_json=config["noise_data"])
+    super(AsrTrainDataset,
+          self).__init__(dataset_json=config["train_data"],
+                         dur_min_filter=config["dur_min_filter"],
+                         dur_max_filter=config["dur_max_filter"],
+                         noiseset_json=config["noise_data"])
 
-    glog.info("Train dataset duration: {}h.".format(self.total_data_amount / 3600, ".2f"))
+    glog.info("Train dataset duration: {}h.".format(
+        self.total_data_amount / 3600, ".2f"))
 
     self._dataset_config = config
     self._tokenizer = tokenizer
-    self._compute_feature = FeatType[config["feat_type"]].value(**config["feat_config"])
+    self._compute_feature = FeatType[config["feat_type"]].value(
+        **config["feat_config"])
 
     # Add Noise data_augmentation
     self._data_aug_config = config["data_aug_config"]
     self._add_noise_proportion = self._data_aug_config["add_noise_proportion"]
-    self._add_noise = data_augmentation.AddNoise(**self._data_aug_config["add_noise_config"])
+    self._add_noise = data_augmentation.AddNoise(
+        **self._data_aug_config["add_noise_config"])
     self._speed_perturb = data_augmentation.SpeedPerturb()
     self._spec_augment = data_augmentation.SpecAugment()
     self._mix_feats_proportion = self._data_aug_config["mix_feats_proportion"]
-    self._mix_feats = data_augmentation.MixFeats(**self._data_aug_config["mix_feats_config"])
+    self._mix_feats = data_augmentation.MixFeats(
+        **self._data_aug_config["mix_feats_config"])
 
   def __getitem__(self, index):
     """ Return:
@@ -141,21 +147,23 @@ class AsrTrainDataset(BaseDataset):
     # Apply segmentation on origin audio, quite slow not recommend.
 
     frame_offset, num_frames = self.compute_offset(
-        start=data["segment"][0],
-        end=data["segment"][1]) if self._dataset_config["apply_segment"] else 0, -1
+        start=data["segment"][0], end=data["segment"]
+        [1]) if self._dataset_config["apply_segment"] else 0, -1
 
-    pcm, framerate = torchaudio.load(data["audio_filepath"],
-                                     frame_offset=frame_offset,
-                                     num_frames=num_frames,
-                                     normalize=self._compute_feature.pcm_normalize)
+    pcm, framerate = torchaudio.load(
+        data["audio_filepath"],
+        frame_offset=frame_offset,
+        num_frames=num_frames,
+        normalize=self._compute_feature.pcm_normalize)
 
     # Data Augmentation: Add Noise
     if self._data_aug_config["use_add_noise"]:
       # Use add noise proportion control the augmentation ratio of all dataset
       need_noisify_aug = random.uniform(0, 1) < self._add_noise_proportion
       if need_noisify_aug:
-        noise_pcm, _ = torchaudio.load(random.choice(self._noise_dataset)["noise_filepath"],
-                                       normalize=self._compute_feature.pcm_normalize)
+        noise_pcm, _ = torchaudio.load(
+            random.choice(self._noise_dataset)["noise_filepath"],
+            normalize=self._compute_feature.pcm_normalize)
         pcm = self._add_noise.process(pcm, noise_pcm)
 
     if self._data_aug_config["use_speed_perturb"]:
@@ -168,14 +176,16 @@ class AsrTrainDataset(BaseDataset):
       if need_mix_feats:
         noise_entry = random.choice(self._noise_dataset)
         # Avoid waste on compute feats on unused noise_pcm.
-        start_t = random.uniform(0, max(0, noise_entry["duration"] - data["duration"]))
+        start_t = random.uniform(
+            0, max(0, noise_entry["duration"] - data["duration"]))
         end_t = min(start_t + data["duration"], noise_entry["duration"])
         frame_offset, num_frames = self.compute_offset(start_t, end_t)
 
-        noise_pcm, _ = torchaudio.load(noise_entry["noise_filepath"],
-                                       frame_offset=frame_offset,
-                                       num_frames=num_frames,
-                                       normalize=self._compute_feature.pcm_normalize)
+        noise_pcm, _ = torchaudio.load(
+            noise_entry["noise_filepath"],
+            frame_offset=frame_offset,
+            num_frames=num_frames,
+            normalize=self._compute_feature.pcm_normalize)
         noise_feats = self._compute_feature(noise_pcm)
         feat = self._mix_feats.process(src=feat, noise=noise_feats)
 
@@ -196,16 +206,19 @@ class AsrEvalDataset(BaseDataset):
   """ ASR EvalDataset without Data Augementation """
 
   def __init__(self, config, tokenizer: utils.TokenizerSetup) -> None:
-    super(AsrEvalDataset, self).__init__(dataset_json=config["eval_data"],
-                                         dur_min_filter=config["dur_min_filter"],
-                                         dur_max_filter=config["dur_max_filter"],
-                                         noiseset_json=None)
+    super(AsrEvalDataset,
+          self).__init__(dataset_json=config["eval_data"],
+                         dur_min_filter=config["dur_min_filter"],
+                         dur_max_filter=config["dur_max_filter"],
+                         noiseset_json=None)
 
-    glog.info("Eval dataset duration: {}h.".format(self.total_data_amount / 3600, ".2f"))
+    glog.info("Eval dataset duration: {}h.".format(
+        self.total_data_amount / 3600, ".2f"))
 
     self._dataset_config = config
     self._tokenizer = tokenizer
-    self._compute_feature = FeatType[config["feat_type"]].value(**config["feat_config"])
+    self._compute_feature = FeatType[config["feat_type"]].value(
+        **config["feat_config"])
 
   def __getitem__(self, index):
     """ Return:
@@ -221,13 +234,14 @@ class AsrEvalDataset(BaseDataset):
 
     # Apply segmentation on origin audio, quite slow not recommend.
     frame_offset, num_frames = self.compute_offset(
-        start=data["segment"][0],
-        end=data["segment"][1]) if self._dataset_config["apply_segment"] else 0, -1
+        start=data["segment"][0], end=data["segment"]
+        [1]) if self._dataset_config["apply_segment"] else 0, -1
 
-    pcm, framerate = torchaudio.load(data["audio_filepath"],
-                                     frame_offset=frame_offset,
-                                     num_frames=num_frames,
-                                     normalize=self._compute_feature.pcm_normalize)
+    pcm, framerate = torchaudio.load(
+        data["audio_filepath"],
+        frame_offset=frame_offset,
+        num_frames=num_frames,
+        normalize=self._compute_feature.pcm_normalize)
 
     feat = self._compute_feature(pcm)
 
@@ -257,7 +271,8 @@ class AsrTestDataset(BaseDataset):
                                          dur_max_filter=dur_max_filter,
                                          noiseset_json=None)
 
-    glog.info("Test dataset duration: {}h.".format(self.total_data_amount / 3600, ".2f"))
+    glog.info("Test dataset duration: {}h.".format(
+        self.total_data_amount / 3600, ".2f"))
 
     self._testset_config = testset_config
     self._compute_feature = FeatType[testset_config["feat_type"]].value(
@@ -275,13 +290,14 @@ class AsrTestDataset(BaseDataset):
 
     # Apply segmentation on origin audio, quite slow not recommend.
     frame_offset, num_frames = self.compute_offset(
-        start=data["segment"][0],
-        end=data["segment"][1]) if self._testset_config["apply_segment"] else 0, -1
+        start=data["segment"][0], end=data["segment"]
+        [1]) if self._testset_config["apply_segment"] else 0, -1
 
-    pcm, framerate = torchaudio.load(data["audio_filepath"],
-                                     frame_offset=frame_offset,
-                                     num_frames=num_frames,
-                                     normalize=self._compute_feature.pcm_normalize)
+    pcm, framerate = torchaudio.load(
+        data["audio_filepath"],
+        frame_offset=frame_offset,
+        num_frames=num_frames,
+        normalize=self._compute_feature.pcm_normalize)
 
     feat = self._compute_feature(pcm)
 
@@ -327,24 +343,29 @@ class SslTrainDataset(BaseDataset):
     """
 
   def __init__(self, config) -> None:
-    super(SslTrainDataset, self).__init__(dataset_json=config["train_data"],
-                                          dur_min_filter=config["dur_min_filter"],
-                                          dur_max_filter=config["dur_max_filter"],
-                                          noiseset_json=config["noise_data"])
+    super(SslTrainDataset,
+          self).__init__(dataset_json=config["train_data"],
+                         dur_min_filter=config["dur_min_filter"],
+                         dur_max_filter=config["dur_max_filter"],
+                         noiseset_json=config["noise_data"])
 
-    glog.info("Train dataset duration: {}h.".format(self.total_data_amount / 3600, ".2f"))
+    glog.info("Train dataset duration: {}h.".format(
+        self.total_data_amount / 3600, ".2f"))
 
     self._dataset_config = config
-    self._compute_feature = FeatType[config["feat_type"]].value(**config["feat_config"])
+    self._compute_feature = FeatType[config["feat_type"]].value(
+        **config["feat_config"])
 
     # Add Noise data_augmentation
     self._data_aug_config = config["data_aug_config"]
     self._add_noise_proportion = self._data_aug_config["add_noise_proportion"]
-    self._add_noise = data_augmentation.AddNoise(**self._data_aug_config["add_noise_config"])
+    self._add_noise = data_augmentation.AddNoise(
+        **self._data_aug_config["add_noise_config"])
     self._speed_perturb = data_augmentation.SpeedPerturb()
     self._spec_augment = data_augmentation.SpecAugment()
     self._mix_feats_proportion = self._data_aug_config["mix_feats_proportion"]
-    self._mix_feats = data_augmentation.MixFeats(**self._data_aug_config["mix_feats_config"])
+    self._mix_feats = data_augmentation.MixFeats(
+        **self._data_aug_config["mix_feats_config"])
 
   def __getitem__(self, index):
     """ Return: {
@@ -361,18 +382,20 @@ class SslTrainDataset(BaseDataset):
     # Apply segmentation on origin audio, quite slow not recommend.
 
     frame_offset, num_frames = self.compute_offset(
-        start=data["segment"][0],
-        end=data["segment"][1]) if self._dataset_config["apply_segment"] else 0, -1
+        start=data["segment"][0], end=data["segment"]
+        [1]) if self._dataset_config["apply_segment"] else 0, -1
 
-    raw_pcm, framerate = torchaudio.load(data["audio_filepath"],
-                                         frame_offset=frame_offset,
-                                         num_frames=num_frames,
-                                         normalize=self._compute_feature.pcm_normalize)
+    raw_pcm, framerate = torchaudio.load(
+        data["audio_filepath"],
+        frame_offset=frame_offset,
+        num_frames=num_frames,
+        normalize=self._compute_feature.pcm_normalize)
 
     if self._data_aug_config["use_speed_perturb"]:
       raw_pcm = self._speed_perturb.process(raw_pcm)  # Speed_perturb on raw pcm
 
-    raw_feat = self._compute_feature(raw_pcm)  # Extract acoustic feats of raw pcm
+    raw_feat = self._compute_feature(
+        raw_pcm)  # Extract acoustic feats of raw pcm
 
     # Data Augmentation: Add Noise
     auged_pcm = raw_pcm
@@ -380,8 +403,9 @@ class SslTrainDataset(BaseDataset):
       # Use add noise proportion control the augmentation ratio of all dataset
       need_noisify_aug = random.uniform(0, 1) < self._add_noise_proportion
       if need_noisify_aug:
-        noise_pcm, _ = torchaudio.load(random.choice(self._noise_dataset)["noise_filepath"],
-                                       normalize=self._compute_feature.pcm_normalize)
+        noise_pcm, _ = torchaudio.load(
+            random.choice(self._noise_dataset)["noise_filepath"],
+            normalize=self._compute_feature.pcm_normalize)
         auged_pcm = self._add_noise.process(raw_pcm, noise_pcm)
 
     auged_feat = self._compute_feature(auged_pcm)  # Extract acoustic feats
@@ -391,14 +415,16 @@ class SslTrainDataset(BaseDataset):
       if need_mix_feats:
         noise_entry = random.choice(self._noise_dataset)
         # Avoid waste on compute feats on unused noise_pcm.
-        start_t = random.uniform(0, max(0, noise_entry["duration"] - data["duration"]))
+        start_t = random.uniform(
+            0, max(0, noise_entry["duration"] - data["duration"]))
         end_t = min(start_t + data["duration"], noise_entry["duration"])
         frame_offset, num_frames = self.compute_offset(start_t, end_t)
 
-        noise_pcm, _ = torchaudio.load(noise_entry["noise_filepath"],
-                                       frame_offset=frame_offset,
-                                       num_frames=num_frames,
-                                       normalize=self._compute_feature.pcm_normalize)
+        noise_pcm, _ = torchaudio.load(
+            noise_entry["noise_filepath"],
+            frame_offset=frame_offset,
+            num_frames=num_frames,
+            normalize=self._compute_feature.pcm_normalize)
         noise_feats = self._compute_feature(noise_pcm)
         auged_feat = self._mix_feats.process(src=auged_feat, noise=noise_feats)
 
@@ -416,14 +442,17 @@ class SslEvalDataset(BaseDataset):
   """ Self-supervised learning eval dataset """
 
   def __init__(self, config) -> None:
-    super(SslEvalDataset, self).__init__(dataset_json=config["eval_data"],
-                                         dur_min_filter=config["dur_min_filter"],
-                                         dur_max_filter=config["dur_max_filter"],
-                                         noiseset_json=None)
-    glog.info("Eval dataset duration: {}h.".format(self.total_data_amount / 3600, ".2f"))
+    super(SslEvalDataset,
+          self).__init__(dataset_json=config["eval_data"],
+                         dur_min_filter=config["dur_min_filter"],
+                         dur_max_filter=config["dur_max_filter"],
+                         noiseset_json=None)
+    glog.info("Eval dataset duration: {}h.".format(
+        self.total_data_amount / 3600, ".2f"))
 
     self._dataset_config = config
-    self._compute_feature = FeatType[config["feat_type"]].value(**config["feat_config"])
+    self._compute_feature = FeatType[config["feat_type"]].value(
+        **config["feat_config"])
 
   def __getitem__(self, index):
     """ Return: {
@@ -439,13 +468,14 @@ class SslEvalDataset(BaseDataset):
 
     # Apply segmentation on origin audio, quite slow not recommend.
     frame_offset, num_frames = self.compute_offset(
-        start=data["segment"][0],
-        end=data["segment"][1]) if self._dataset_config["apply_segment"] else 0, -1
+        start=data["segment"][0], end=data["segment"]
+        [1]) if self._dataset_config["apply_segment"] else 0, -1
 
-    pcm, framerate = torchaudio.load(data["audio_filepath"],
-                                     frame_offset=frame_offset,
-                                     num_frames=num_frames,
-                                     normalize=self._compute_feature.pcm_normalize)
+    pcm, framerate = torchaudio.load(
+        data["audio_filepath"],
+        frame_offset=frame_offset,
+        num_frames=num_frames,
+        normalize=self._compute_feature.pcm_normalize)
 
     feat = self._compute_feature(pcm)
 
@@ -478,9 +508,11 @@ class LmDataset(Dataset):
     self._max_token_num = -float("inf")
     self._tokenizer = tokenizer
 
-    self._dataset = self._make_dataset_from_json(dataset_json, token_min_filter, token_max_filter)
+    self._dataset = self._make_dataset_from_json(dataset_json, token_min_filter,
+                                                 token_max_filter)
 
-  def _make_dataset_from_json(self, json_file, token_min_filter, token_max_filter):
+  def _make_dataset_from_json(self, json_file, token_min_filter,
+                              token_max_filter):
     """ Make Dataset list from JSON file """
     datamap = []
     with open(json_file, 'r') as json_f:
@@ -491,8 +523,10 @@ class LmDataset(Dataset):
         if token_min_filter <= data_infos["num_tokens"] <= token_max_filter:
           datamap.append(data_infos)
           self._total_num_tokens += data_infos["num_tokens"]
-          self._min_token_num = min(self._min_token_num, data_infos["num_tokens"])
-          self._max_token_num = max(self._max_token_num, data_infos["num_tokens"])
+          self._min_token_num = min(self._min_token_num,
+                                    data_infos["num_tokens"])
+          self._max_token_num = max(self._max_token_num,
+                                    data_infos["num_tokens"])
     return datamap
 
   def fetch_data_k_info(self, idx, k):

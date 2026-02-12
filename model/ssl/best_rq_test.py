@@ -38,8 +38,9 @@ class TestBestRQLayer(unittest.TestCase):
         "min_space": 1,
         "seed": None
     }
-    self._bestrq = BestRQLayer(layer_config=BestRQLayerConfig(**self._bestrq_layer_config),
-                               masking_config=MaskingStrategyConfig(**self._masking_config))
+    self._bestrq = BestRQLayer(
+        layer_config=BestRQLayerConfig(**self._bestrq_layer_config),
+        masking_config=MaskingStrategyConfig(**self._masking_config))
     self._frontend = KaldiWaveFeature(num_mel_bins=80)
 
   def test_bestrq_layer_forward(self):
@@ -51,7 +52,8 @@ class TestBestRQLayer(unittest.TestCase):
 
     batch = self._bestrq(test_feats, test_feats, test_lengths)
     glog.info("Masked feats shape: {}".format(batch["masked_feats"].shape))
-    glog.info("Labels shape: {}".format(batch["labels"].shape))  # (num codebooks, B, T // 4)
+    glog.info("Labels shape: {}".format(
+        batch["labels"].shape))  # (num codebooks, B, T // 4)
     glog.info("Masked proportion: {}".format(batch["masked_dim"].sum() /
                                              batch["masked_dim"].numel()))
     self.assertEqual(batch["labels"].shape[1:], batch["masked_dim"].shape)
@@ -61,11 +63,13 @@ class TestBestRQLayer(unittest.TestCase):
     lengths = torch.randint(7, 400, (10,))
     feats = torch.rand(10, int(lengths.max()), 80)
 
-    sub_frame_arr, label_lengths, labels = self._bestrq._get_subsampling_arrangment(feats, lengths)
+    sub_frame_arr, label_lengths, labels = self._bestrq._get_subsampling_arrangment(
+        feats, lengths)
     glog.info("Input feats shape: {}".format(feats.shape))
     glog.info("Sub_frame_arr shape: {}".format(sub_frame_arr.shape))
     glog.info("Subsampled length: {}".format(label_lengths))
-    glog.info("Label shape: {}".format(labels.shape))  # (num_codebooks, B, T // 4)
+    glog.info("Label shape: {}".format(
+        labels.shape))  # (num_codebooks, B, T // 4)
 
     self.assertEqual(sub_frame_arr.shape[1], labels.shape[2])
 
@@ -75,20 +79,25 @@ class TestBestRQLayer(unittest.TestCase):
     feats = torch.rand(10, int(lengths.max()), 80)
     glog.info("Randint lengths: {}".format(lengths))
 
-    sub_frame_arr, subsampled_len, labels = self._bestrq._get_subsampling_arrangment(feats, lengths)
-    masked_feats, masked_dim = self._bestrq._random_mask(feats, sub_frame_arr, subsampled_len)
+    sub_frame_arr, subsampled_len, labels = self._bestrq._get_subsampling_arrangment(
+        feats, lengths)
+    masked_feats, masked_dim = self._bestrq._random_mask(
+        feats, sub_frame_arr, subsampled_len)
     glog.info("Masked feats shape: {}".format(masked_feats.shape))
     glog.info("Masked dimension shape: {}".format(masked_dim.shape))
 
   @parameterized.expand([(23, 199), (32, 399)])
   def test_conformer_subsampling_4(self, batchsize, timestep):
     # Unittest of BestRQLayer conformer subsampling4
-    self._subsampling_module = Subsampling(idim=80, odim=512, subsampling_rate=4)
+    self._subsampling_module = Subsampling(idim=80,
+                                           odim=512,
+                                           subsampling_rate=4)
     lengths = torch.randint(7, timestep, (batchsize,))
     feats = torch.rand(batchsize, int(lengths.max()), 80)
 
     batch = self._bestrq(feats, feats, lengths)
-    glog.info("Best_rq masked feats shape: {}".format(batch["masked_feats"].shape))
+    glog.info("Best_rq masked feats shape: {}".format(
+        batch["masked_feats"].shape))
     glog.info("Best_rq labels shape: {}".format(batch["labels"].shape))
     glog.info("Best_rq masked_dim shape: {}".format(batch["masked_dim"].shape))
 
@@ -96,7 +105,8 @@ class TestBestRQLayer(unittest.TestCase):
     glog.info("Conformer input feats shape: {}".format(feats.shape))
     output, out_length = self._subsampling_module(feats, lengths)
     glog.info("Conformer output feats shape: {}".format(output.shape))
-    glog.info("masked proportion: {}".format(batch["masked_dim"].sum() / out_length.sum()))
+    glog.info("masked proportion: {}".format(batch["masked_dim"].sum() /
+                                             out_length.sum()))
 
     self.assertEqual(output.shape[-1], 512)
     self.assertEqual(output.shape[1], int(out_length.max()))

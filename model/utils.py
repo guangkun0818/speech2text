@@ -14,8 +14,8 @@ from dataset.utils import Tokenizer
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner
 
-from model.decoding import (reference_decoder, batch_search, RnntGreedyDecoding, CtcGreedyDecoding,
-                            CifGreedyDecoding)
+from model.decoding import (reference_decoder, batch_search, RnntGreedyDecoding,
+                            CtcGreedyDecoding, CifGreedyDecoding)
 
 from typing import Tuple
 
@@ -64,7 +64,8 @@ def word_error_rate(hypotheses: List[str],
   if len(hypotheses) != len(references):
     raise ValueError("In word error rate calculation, hypotheses and references"
                      " lists must have the same number of elements. But I got:"
-                     "{0} and {1} correspondingly".format(len(hypotheses), len(references)))
+                     "{0} and {1} correspondingly".format(
+                         len(hypotheses), len(references)))
   # Random pick one from eval batch and show on screen
   if show_on_screen:
     index_picked = random.randint(0, len(references) - 1)
@@ -110,10 +111,11 @@ class AsrMetric(object):
     if config.decode_method == "ctc_greedy_search":
       self._decode_sess = CtcGreedyDecoding(tokenizer=self._tokenizer)
     elif config.decode_method == "rnnt_greedy_search":
-      self._decode_sess = RnntGreedyDecoding(tokenizer=self._tokenizer,
-                                             predictor=predictor,
-                                             joiner=joiner,
-                                             max_token_step=config.max_token_step)
+      self._decode_sess = RnntGreedyDecoding(
+          tokenizer=self._tokenizer,
+          predictor=predictor,
+          joiner=joiner,
+          max_token_step=config.max_token_step)
     elif config.decode_method == "cif_greedy_search":
       self._decode_sess = CifGreedyDecoding(tokenizer=self._tokenizer)
     else:
@@ -147,8 +149,8 @@ class SslMetric(object):
     self._compute_acc = self._ssl_accuarcy
     self._top_ks = config.top_ks
 
-  def _ssl_accuarcy(self, logits: torch.Tensor, labels: torch.Tensor, masked_dim: torch.Tensor,
-                    top_k):
+  def _ssl_accuarcy(self, logits: torch.Tensor, labels: torch.Tensor,
+                    masked_dim: torch.Tensor, top_k):
     """ Compute ACC with given top_k of SSL task 
             Args:
                 logits: torch.Size(B, T, D)
@@ -158,12 +160,14 @@ class SslMetric(object):
         """
     batch_size = labels.shape[0]
 
-    logits_top_k = logits.topk(top_k, dim=-1, largest=True,
-                               sorted=True).indices  # logits_top_k shape: (B, T, top_k)
+    logits_top_k = logits.topk(
+        top_k, dim=-1, largest=True,
+        sorted=True).indices  # logits_top_k shape: (B, T, top_k)
 
     # Masked_dim, where 1 indicate position to be predicted, therefore, mask out 0 position
     # for metrics (ACC) evaluation.
-    valid_logits_top_k = logits_top_k.masked_fill((1 - masked_dim).unsqueeze(-1).bool(), value=-1)
+    valid_logits_top_k = logits_top_k.masked_fill(
+        (1 - masked_dim).unsqueeze(-1).bool(), value=-1)
 
     valid_labels = masked_dim * labels
     valid_labels = valid_labels.unsqueeze(-1)
@@ -172,9 +176,11 @@ class SslMetric(object):
     num_matched = torch.eq(valid_logits_top_k, valid_labels).sum().float()
 
     # ACC of top_k
-    return num_matched / (masked_dim.sum() + 1e-7)  # In case inf acc due to no mask within batch
+    return num_matched / (masked_dim.sum() + 1e-7
+                         )  # In case inf acc due to no mask within batch
 
-  def __call__(self, logits: torch.Tensor, labels: torch.Tensor, masked_dim: torch.Tensor):
+  def __call__(self, logits: torch.Tensor, labels: torch.Tensor,
+               masked_dim: torch.Tensor):
     """ Call func of Metric """
     # Return metrics as dic during eval stage
     metrics = {}

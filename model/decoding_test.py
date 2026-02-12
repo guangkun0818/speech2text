@@ -12,17 +12,21 @@ from parameterized import parameterized
 
 from dataset.utils import TokenizerSetup
 from model.decoding import (reference_decoder, batch_search, CtcGreedyDecoding,
-                            CtcLexiconBeamDecoding, RnntGreedyDecoding, RnntBeamDecoding,
-                            CifGreedyDecoding)
+                            CtcLexiconBeamDecoding, RnntGreedyDecoding,
+                            RnntBeamDecoding, CifGreedyDecoding)
 from model.predictor.predictor import Predictor
 from model.joiner.joiner import Joiner, JoinerConfig
 
 # (B, T, D) = (2, 8, 5)
-_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0,
-                                                         0.0]]).unsqueeze(0).repeat(2, 1, 1)
+_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 1.0,
+                         0.0]]).unsqueeze(0).repeat(2, 1, 1)
 
 
 class TestCtcGreedySearch(unittest.TestCase):
@@ -43,8 +47,10 @@ class TestCtcGreedySearch(unittest.TestCase):
         }
     }
     self._subword_tokenizer = TokenizerSetup(self._subword_config)
-    self._char_decode_session = CtcGreedyDecoding(tokenizer=self._char_tokenizer)
-    self._subword_decode_session = CtcGreedyDecoding(tokenizer=self._subword_tokenizer)
+    self._char_decode_session = CtcGreedyDecoding(
+        tokenizer=self._char_tokenizer)
+    self._subword_decode_session = CtcGreedyDecoding(
+        tokenizer=self._subword_tokenizer)
 
   # Params: (ground_truth, labels, tokenzier)
   @parameterized.expand([
@@ -68,7 +74,8 @@ class TestCtcGreedySearch(unittest.TestCase):
     self.assertEqual(hypos, refers)
 
   # Params (refers: List of reference text)
-  @parameterized.expand([(["abc", "aabc", "i love china", "bilibili is good"],)])
+  @parameterized.expand([(["abc", "aabc", "i love china",
+                           "bilibili is good"],)])
   def test_decode_reference_tensor_subword(self, refers):
     # Unittest of subword-based decode_reference_tensor
     ref_tensor = []
@@ -129,7 +136,11 @@ class TestRnntGreedyDecoding(unittest.TestCase):
 
     # Input dim should be eq to predictor output_dim, output_dim
     # should be same as num_symbols of predictor.
-    self._joiner_config = {"input_dim": 512, "output_dim": 128, "activation": "relu"}
+    self._joiner_config = {
+        "input_dim": 512,
+        "output_dim": 128,
+        "activation": "relu"
+    }
     self._joiner = Joiner(config=JoinerConfig(**self._joiner_config))
     self._decode_session = RnntGreedyDecoding(predictor=self._predictor,
                                               joiner=self._joiner,
@@ -172,7 +183,11 @@ class TestRnntBeamDecoding(unittest.TestCase):
 
     # Input dim should be eq to predictor output_dim, output_dim
     # should be same as num_symbols of predictor.
-    self._joiner_config = {"input_dim": 512, "output_dim": 128, "activation": "relu"}
+    self._joiner_config = {
+        "input_dim": 512,
+        "output_dim": 128,
+        "activation": "relu"
+    }
     self._joiner = Joiner(config=JoinerConfig(**self._joiner_config))
     self._decode_session = RnntBeamDecoding(predictor=self._predictor,
                                             joiner=self._joiner,

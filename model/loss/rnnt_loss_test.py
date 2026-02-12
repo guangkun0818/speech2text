@@ -19,8 +19,9 @@ class TestRnntLoss(unittest.TestCase):
   def test_rnnt_loss_forward(self):
     # Unittest of Rnt Loss forward
     logits = torch.rand(2, 200, 10, 6)  # (B, T, 1 + U, D)
-    targets = torch.Tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9], [2, 2, 1, 1, 1, 8, 6, 0,
-                                                          0]]).to(torch.int32)  # (B, U)
+    targets = torch.Tensor([[1, 2, 3, 4, 5, 6, 7, 8, 9],
+                            [2, 2, 1, 1, 1, 8, 6, 0,
+                             0]]).to(torch.int32)  # (B, U)
     logit_lengths = torch.Tensor([200, 160]).to(torch.int32)  # (B)
     target_lengths = torch.Tensor([9, 7]).to(torch.int32)  # (B)
 

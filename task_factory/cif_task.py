@@ -50,7 +50,8 @@ class BaseCifTask(pl.LightningModule):
     # Modules fo rnnt task building.
     self._tokenizer = TokenizerSetup(self._tokenizer_config)
     self._frontend = self._get_frontend(copy.deepcopy(config["dataset"]))
-    self._global_cmvn = GlobalCmvnLayer(config=self._dataset_config)  # Register CMVN buffer
+    self._global_cmvn = GlobalCmvnLayer(
+        config=self._dataset_config)  # Register CMVN buffer
     self._encoder = Encoder(self._encoder_config)
     self._cif_layer = CifLayer(config=CifLayerConfig(**self._cif_layer_config))
     self._decoder = Decoder(self._decoder_config)
@@ -83,9 +84,10 @@ class BaseCifTask(pl.LightningModule):
                                  shuffle=True,
                                  drop_last=False)
     if self._dataset_config["use_bucket_sampler"]:
-      batch_sampler = DynamicBucketBatchSampler(sampler=sampler,
-                                                dataset=dataset,
-                                                **self._dataset_config["bucket_sampler_config"])
+      batch_sampler = DynamicBucketBatchSampler(
+          sampler=sampler,
+          dataset=dataset,
+          **self._dataset_config["bucket_sampler_config"])
       dataloader = DataLoader(dataset=dataset,
                               collate_fn=asr_collate_fn,
                               batch_sampler=batch_sampler,
@@ -143,7 +145,8 @@ class BaseCifTask(pl.LightningModule):
     Optimizer, LR_Scheduler = OptimSetup(self._optim_config)
     params = self.parameters()
     optimizer = Optimizer(params, **self._optim_config["optimizer"]["config"])
-    lr_scheduler = LR_Scheduler(optimizer=optimizer, **self._optim_config["lr_scheduler"]["config"])
+    lr_scheduler = LR_Scheduler(optimizer=optimizer,
+                                **self._optim_config["lr_scheduler"]["config"])
     return {
         "optimizer": optimizer,
         "lr_scheduler": {
@@ -177,7 +180,8 @@ class CifTask(BaseCifTask):
     acoustic_embeds, cif_peak, token_num_hat, alphas = self._cif_layer(
         encoder_out, encoder_out_length, batch["label"], batch["label_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(acoustic_embeds, batch["label_length"])
+    decoder_out, decoder_out_length = self._decoder(acoustic_embeds,
+                                                    batch["label_length"])
 
     # Organize batch as Loss API
     mae_loss_input_batch = {
@@ -198,7 +202,8 @@ class CifTask(BaseCifTask):
     if batch_idx % 100 == 0:
       glog.info(
           "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} aed_loss {} mae_loss: {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, aed_loss, mae_loss))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  aed_loss, mae_loss))
     train_info = {
         "train_loss": loss,
         "train_loss/aed_loss": aed_loss,
@@ -219,7 +224,8 @@ class CifTask(BaseCifTask):
     acoustic_embeds, cif_peak, token_num_hat, alphas = self._cif_layer(
         encoder_out, encoder_out_length, batch["label"], batch["label_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(acoustic_embeds, batch["label_length"])
+    decoder_out, decoder_out_length = self._decoder(acoustic_embeds,
+                                                    batch["label_length"])
 
     # Organize batch as Loss API
     mae_loss_input_batch = {
@@ -241,7 +247,8 @@ class CifTask(BaseCifTask):
     # this stage.
     acoustic_embeds, cif_peak, token_num_hat, alphas = self._cif_layer(
         encoder_out, encoder_out_length)
-    decoder_out, decoder_out_length = self._decoder(acoustic_embeds, token_num_hat.long())
+    decoder_out, decoder_out_length = self._decoder(acoustic_embeds,
+                                                    token_num_hat.long())
 
     glog.info("Evaluating......")
     preds = self._aed_loss.predict(decoder_out)
@@ -250,7 +257,8 @@ class CifTask(BaseCifTask):
     if batch_idx % 100 == 0:
       glog.info(
           "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} aed_loss {} mae_loss: {} wer: {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, aed_loss, mae_loss, wer))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  aed_loss, mae_loss, wer))
     train_info = {
         "val_loss": loss,
         "val_loss/aed_loss": aed_loss,
@@ -275,7 +283,8 @@ class CifInference(AbcAsrInference, CifTask):
     self._streaming_config = infer_config["streaming"]
     self._is_encoder_streaming = self._streaming_config["is_encoder_streaming"]
     if self._is_encoder_streaming:
-      self._enc_streaming_setting = self._streaming_config["encoder_streaming_setting"]
+      self._enc_streaming_setting = self._streaming_config[
+          "encoder_streaming_setting"]
 
   def test_step(self, batch, batch_idx):
     feat = self._global_cmvn(batch["feat"])
@@ -284,19 +293,24 @@ class CifInference(AbcAsrInference, CifTask):
       encoder_out, encoder_out_length = self._encoder.streaming_forward(
           feat, batch["feat_length"], **self._enc_streaming_setting)
     else:
-      encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
+      encoder_out, encoder_out_length = self._encoder(feat,
+                                                      batch["feat_length"])
 
     # CIF/Decoder layer inference for metric, num of token will be predicted through
     # this stage.
     acoustic_embeds, cif_peak, token_num_hat, alphas = self._cif_layer(
         encoder_out, encoder_out_length)
 
-    decoder_out, decoder_out_length = self._decoder(acoustic_embeds, token_num_hat.long())
+    decoder_out, decoder_out_length = self._decoder(acoustic_embeds,
+                                                    token_num_hat.long())
 
     log_probs = self._aed_loss.predict(decoder_out)
 
-    decoded_texts = batch_search(log_probs, decoder_out_length, decode_session=self._decoding_sess)
+    decoded_texts = batch_search(log_probs,
+                                 decoder_out_length,
+                                 decode_session=self._decoding_sess)
 
-    self._export_decoded_results(batch["audio_filepath"], decoded_texts, batch["text"])
+    self._export_decoded_results(batch["audio_filepath"], decoded_texts,
+                                 batch["text"])
     self._predicton += decoded_texts
     self._reference += batch["text"]

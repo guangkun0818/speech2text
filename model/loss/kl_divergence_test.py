@@ -14,8 +14,13 @@ from model.loss.kl_divergence import MaskedKLDivergence, MaskedKLDivergenceConfi
 class TestMaskedKLDivergence(unittest.TestCase):
 
   def setUp(self) -> None:
-    self._loss_config = {"num_classes": 8193, "scale_factor": 1.0, "label_smoothing": 0.1}
-    self._kl_loss = MaskedKLDivergence(config=MaskedKLDivergenceConfig(**self._loss_config))
+    self._loss_config = {
+        "num_classes": 8193,
+        "scale_factor": 1.0,
+        "label_smoothing": 0.1
+    }
+    self._kl_loss = MaskedKLDivergence(config=MaskedKLDivergenceConfig(
+        **self._loss_config))
 
   @parameterized.expand([(723,), (671,), (437,)])
   def test_loss_forward(self, length):

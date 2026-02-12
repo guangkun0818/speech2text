@@ -45,22 +45,26 @@ class TestEmformer(unittest.TestCase):
   def test_enformer_stream_step(self):
     # Unittest of stream_step
     self._emformer.train(False)  # Eval stage
-    feats = torch.rand(1, 60, 80)  # Chunk size should comply with predefined segment_length
+    feats = torch.rand(
+        1, 60, 80)  # Chunk size should comply with predefined segment_length
     states = []  # Initial states
 
-    non_stream_output, _ = self._emformer(feats, torch.Tensor([60]).to(torch.int32))
+    non_stream_output, _ = self._emformer(feats,
+                                          torch.Tensor([60]).to(torch.int32))
     glog.info("Non-streaming output: {}".format(non_stream_output.shape))
 
     # Simu-streaming
     for i in range(3):
-      output, states = self._emformer.streaming_step(feats[:, i * 20:20 * (i + 1), :], states)
+      output, states = self._emformer.streaming_step(
+          feats[:, i * 20:20 * (i + 1), :], states)
       glog.info("Step {} Output shape: {}".format(i + 1, output.shape))
 
   def test_non_streaming_infer(self):
     # Unittest of non_streaming_ infer
     self._emformer.train(False)
     feats = torch.rand(1, 128, 80)
-    dummy_length = torch.tensor([feats.shape[1]]).to(feats.device).to(torch.int32)
+    dummy_length = torch.tensor([feats.shape[1]
+                                ]).to(feats.device).to(torch.int32)
     train_output, _ = self._emformer(feats, dummy_length)
     non_stream_infer = self._emformer.non_streaming_inference(feats)
     self.assertTrue(torch.allclose(train_output, non_stream_infer))
@@ -68,13 +72,15 @@ class TestEmformer(unittest.TestCase):
   def test_emformer_torchscript_export(self):
     # Unittest of Emformer torchscript export
     self._emformer.train(False)
-    glog.info("Params of Emformer: {}".format(sum(p.numel() for p in self._emformer.parameters())))
+    glog.info("Params of Emformer: {}".format(
+        sum(p.numel() for p in self._emformer.parameters())))
 
     feats = torch.rand(3, 128, 80)
     lengths = torch.Tensor([64, 128, 80]).to(torch.int32)
     pt_output, _ = self._emformer(feats, lengths)
 
-    ts_emformer = torch.jit.trace(self._emformer, example_inputs=[feats, lengths])
+    ts_emformer = torch.jit.trace(self._emformer,
+                                  example_inputs=[feats, lengths])
     ts_emformer = torch.jit.script(ts_emformer)
     ts_output, _ = ts_emformer(feats, lengths)
 
@@ -97,7 +103,9 @@ class TestEmformer(unittest.TestCase):
     feats = torch.rand(3, 128, 80)
     lengths = torch.Tensor([64, 128, 80]).to(torch.int32)
 
-    output, out_lengths = self._emformer.streaming_forward(feats, lengths, chunk_size=22)
+    output, out_lengths = self._emformer.streaming_forward(feats,
+                                                           lengths,
+                                                           chunk_size=22)
     glog.info("Streaming forward output shape: {}".format(output.shape))
     glog.info("Streaming forward out Lengths: {}".format(out_lengths))
 

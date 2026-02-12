@@ -42,7 +42,8 @@ class TestCifLayer(unittest.TestCase):
         "convolution_first": False,
         "output_dim": 512
     }
-    self._conformer = Conformer(config=ConformerConfig(**self._conformer_config))
+    self._conformer = Conformer(config=ConformerConfig(
+        **self._conformer_config))
 
   @parameterized.expand([(10, 100), (23, 195), (32, 399)])
   def test_cif_layer_forward(self, batchsize, timestep):
@@ -56,7 +57,8 @@ class TestCifLayer(unittest.TestCase):
     glog.info("Conformer input feats shape: {}".format(feats.shape))
     encoder_out, encoder_out_length = self._conformer(feats, lengths)
     glog.info("Conformer output feats shape: {}".format(encoder_out.shape))
-    glog.info("Conformer output length shape: {}".format(encoder_out_length.shape))
+    glog.info("Conformer output length shape: {}".format(
+        encoder_out_length.shape))
     glog.info("Conformer output length: {}".format(encoder_out_length))
 
     acoustic_embeds, cif_peak, token_num_hat, alphas = self._cif_layer(

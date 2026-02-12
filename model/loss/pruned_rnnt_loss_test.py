@@ -18,7 +18,8 @@ class TestPrunedRnntLoss(unittest.TestCase):
 
   def setUp(self) -> None:
     self._config = {"termination_symbol": 0, "reduction": "mean"}
-    self._pruned_loss = PrunedRnntLoss(config=PrunedRnntLossConfig(**self._config))
+    self._pruned_loss = PrunedRnntLoss(config=PrunedRnntLossConfig(
+        **self._config))
 
     self._joiner_config = {
         "input_dim": 512,
@@ -36,10 +37,11 @@ class TestPrunedRnntLoss(unittest.TestCase):
     tgts_length = torch.Tensor([8, 10, 9, 2])
     tgts = torch.randint(1, 1000, (4, 15))
 
-    logits, boundary, ranges, simple_loss = self._joiner(enc_out, enc_out_lengths, pred_out,
-                                                         tgts_length, tgts)
+    logits, boundary, ranges, simple_loss = self._joiner(
+        enc_out, enc_out_lengths, pred_out, tgts_length, tgts)
 
-    pruned_loss = self._pruned_loss(logits, tgts, enc_out_lengths, tgts_length, boundary, ranges)
+    pruned_loss = self._pruned_loss(logits, tgts, enc_out_lengths, tgts_length,
+                                    boundary, ranges)
     glog.info("Pruned Rnnt Loss: {}".format(pruned_loss))
     glog.info("Simple Rnnt Loss: {}".format(simple_loss))
 

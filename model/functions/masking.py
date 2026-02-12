@@ -143,8 +143,8 @@ def add_optional_chunk_mask(xs: torch.Tensor,
     chunk_masks = masks & chunk_masks  # (B, L, L)
   elif static_chunk_size > 0:
     num_left_chunks = num_decoding_left_chunks
-    chunk_masks = subsequent_chunk_mask(xs.size(1), static_chunk_size, num_left_chunks,
-                                        xs.device)  # (L, L)
+    chunk_masks = subsequent_chunk_mask(xs.size(1), static_chunk_size,
+                                        num_left_chunks, xs.device)  # (L, L)
     chunk_masks = chunk_masks.unsqueeze(0)  # (1, L, L)
     chunk_masks = masks & chunk_masks  # (B, L, L)
   else:
@@ -206,7 +206,8 @@ def make_non_pad_mask(lengths: torch.Tensor) -> torch.Tensor:
   return ~make_pad_mask(lengths)
 
 
-def mask_finished_scores(score: torch.Tensor, flag: torch.Tensor) -> torch.Tensor:
+def mask_finished_scores(score: torch.Tensor,
+                         flag: torch.Tensor) -> torch.Tensor:
   """
     If a sequence is finished, we only allow one alive branch. This function
     aims to give one branch a zero score and the rest -inf score.
@@ -233,7 +234,8 @@ def mask_finished_scores(score: torch.Tensor, flag: torch.Tensor) -> torch.Tenso
   return score
 
 
-def mask_finished_preds(pred: torch.Tensor, flag: torch.Tensor, eos: int) -> torch.Tensor:
+def mask_finished_preds(pred: torch.Tensor, flag: torch.Tensor,
+                        eos: int) -> torch.Tensor:
   """
     If a sequence is finished, all of its branch should be <eos>
 

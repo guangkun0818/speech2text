@@ -16,11 +16,15 @@ from model.utils import AsrMetric, AsrMetricConfig
 from model.utils import SslMetric, SslMetricConfig
 
 # (B, T, D) = (2, 8, 5)
-_CTC_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
-                            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 1.0,
-                                                             0.0]]).unsqueeze(0).repeat(2, 1, 1)
+_CTC_LOGITS = torch.Tensor([[0.6, 0.0, 0.2, 0.1, 0.1, 0.0],
+                            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0, 0.0, 0.0],
+                            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [1.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 1.0, 0.0, 0.0],
+                            [0.0, 0.0, 0.0, 0.0, 1.0,
+                             0.0]]).unsqueeze(0).repeat(2, 1, 1)
 
 
 class TestCtcMetric(unittest.TestCase):
@@ -34,7 +38,8 @@ class TestCtcMetric(unittest.TestCase):
     self._char_config = {"type": "char", "config": {"labels": ["a", "b", "c"]}}
     self._char_tokenizer = TokenizerSetup(self._char_config)
     self._metric_config = {"decode_method": "ctc_greedy_search"}
-    self._metrics = AsrMetric(self._char_tokenizer, config=AsrMetricConfig(**self._metric_config))
+    self._metrics = AsrMetric(self._char_tokenizer,
+                              config=AsrMetricConfig(**self._metric_config))
 
   # Params: (log probs, inputs_length, expect_wer)
   @parameterized.expand([(_CTC_LOGITS, torch.Tensor([8, 8]).long(), 0.5),
@@ -73,13 +78,23 @@ class TestRnntMetric(unittest.TestCase):
 
     # Input dim should be eq to predictor output_dim, output_dim
     # should be same as num_symbols of predictor.
-    self._joiner_config = {"input_dim": 512, "output_dim": 128, "activation": "relu"}
+    self._joiner_config = {
+        "input_dim": 512,
+        "output_dim": 128,
+        "activation": "relu"
+    }
     self._joiner = Joiner(config=JoinerConfig(**self._joiner_config))
-    self._metric_config = {"metric": {"decode_method": "rnnt_greedy_search", "max_token_step": 1}}
-    self._rnnt_metric = AsrMetric(self._tokenzier,
-                                  config=AsrMetricConfig(**self._metric_config["metric"]),
-                                  predictor=self._predictor,
-                                  joiner=self._joiner)
+    self._metric_config = {
+        "metric": {
+            "decode_method": "rnnt_greedy_search",
+            "max_token_step": 1
+        }
+    }
+    self._rnnt_metric = AsrMetric(
+        self._tokenzier,
+        config=AsrMetricConfig(**self._metric_config["metric"]),
+        predictor=self._predictor,
+        joiner=self._joiner)
 
   def test_rnnt_metric(self):
     # Unittest of call
@@ -113,7 +128,8 @@ class TestSslMetrics(unittest.TestCase):
     glog.info("masked_dim: {}".format(_SSL_MASKED_DIM))
     glog.info("masked_dim shape: {}".format(_SSL_MASKED_DIM.shape))
 
-    acc = self._ssl_metrics._ssl_accuarcy(_SSL_LOGITS, _SSL_LABELS, _SSL_MASKED_DIM, top_k)
+    acc = self._ssl_metrics._ssl_accuarcy(_SSL_LOGITS, _SSL_LABELS,
+                                          _SSL_MASKED_DIM, top_k)
     glog.info("acc: {}".format(acc))
 
   @parameterized.expand([(723,), (671,), (437,)])

@@ -50,8 +50,9 @@ class Joiner(nn.Module):
 
     self._use_out_project = config.use_out_project
     if self._use_out_project:
-      self._out_projection = nn.Sequential(nn.Linear(self._output_dim, self._inner_dim),
-                                           nn.Linear(self._inner_dim, self._output_dim))
+      self._out_projection = nn.Sequential(
+          nn.Linear(self._output_dim, self._inner_dim),
+          nn.Linear(self._inner_dim, self._output_dim))
     else:
       self._out_projection = nn.Identity()  # Placeholder
 
@@ -70,7 +71,8 @@ class Joiner(nn.Module):
   def blank_token(self) -> int:
     return self._blank_token
 
-  def _do_rnnt_prune(self, encoder_out: torch.Tensor, encoder_out_lengths: torch.Tensor,
+  def _do_rnnt_prune(self, encoder_out: torch.Tensor,
+                     encoder_out_lengths: torch.Tensor,
                      predict_out: torch.Tensor, target_lengths: torch.Tensor,
                      target: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """ Pruned LM, AM hidden states for PruneRnntLoss 
@@ -84,7 +86,9 @@ class Joiner(nn.Module):
                 am_pruned, lm_pruned, boundary, ranges, simple_loss
         """
 
-    boundary = torch.zeros((encoder_out.size(0), 4), dtype=torch.int64, device=encoder_out.device)
+    boundary = torch.zeros((encoder_out.size(0), 4),
+                           dtype=torch.int64,
+                           device=encoder_out.device)
     boundary[:, 2] = target_lengths
     boundary[:, 3] = encoder_out_lengths
     assert len(target.shape) == 2  # (B, U)
@@ -114,7 +118,9 @@ class Joiner(nn.Module):
 
     # am_pruned : [B, T, prune_range, C]
     # Im_pruned : [B, T, prune_range, C]
-    am_pruned, lm_pruned = k2.do_rnnt_pruning(am=encoder_out, lm=predict_out, ranges=ranges)
+    am_pruned, lm_pruned = k2.do_rnnt_pruning(am=encoder_out,
+                                              lm=predict_out,
+                                              ranges=ranges)
     return am_pruned, lm_pruned, boundary, ranges, simple_loss
 
   @torch.jit.unused
@@ -177,7 +183,8 @@ class Joiner(nn.Module):
 
   @torch.jit.export
   @torch.inference_mode(mode=True)
-  def streaming_step(self, encoder_out: torch.Tensor, predictor_out: torch.Tensor):
+  def streaming_step(self, encoder_out: torch.Tensor,
+                     predictor_out: torch.Tensor):
     # Streaming inference step, accept only 1 frame from encoder and beam_size token from
     # predictor to predict next. strictly follow Auto-aggressively strategy
     # encoder_out: (1, 1, D), predictor_out: (beam_size, 1, D).
@@ -201,7 +208,8 @@ class Joiner(nn.Module):
 
   @torch.jit.export
   @torch.inference_mode(mode=True)
-  def sherpa_onnx_streaming_step(self, encoder_out: torch.Tensor, predictor_out: torch.Tensor):
+  def sherpa_onnx_streaming_step(self, encoder_out: torch.Tensor,
+                                 predictor_out: torch.Tensor):
     # Wrapped forward for Onnx export
     encoder_out = self._enc_proj(encoder_out)  # (N, proj_enc_out_dim)
     predictor_out = self._pre_proj(predictor_out)  # (N, proj_pre_out_dim)

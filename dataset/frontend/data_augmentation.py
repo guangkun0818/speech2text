@@ -44,7 +44,8 @@ class AddNoise(object):
     if pcm.shape[1] > noise_pcm.shape[1]:
       noise_pcm = noise_pcm.repeat(
           1,
-          torch.div(pcm.shape[1], noise_pcm.shape[1], rounding_mode="floor") + 1)
+          torch.div(pcm.shape[1], noise_pcm.shape[1], rounding_mode="floor") +
+          1)
     # Random pick start and end timestamp of noise_pcm
     start = random.randint(0, noise_pcm.shape[1] - pcm.shape[1])
     end = start + pcm.shape[1]
@@ -88,7 +89,8 @@ class MixFeats(object):
           energy_scaling_factor_b: float) -> torch.Tensor:
     return torch.log(
         torch.clip(
-            torch.exp(features_a) + energy_scaling_factor_b * torch.exp(features_b),
+            torch.exp(features_a) +
+            energy_scaling_factor_b * torch.exp(features_b),
             # protection against 1og(0); max with EPSILON is adequate since these are energies (always >= 0)
             min=1e-10,  # EPSILON = 1e-10
         ))
@@ -103,7 +105,8 @@ class MixFeats(object):
 
     # Pad on noise_feats if it short than src_feats, same as add_noise
     if src.shape[0] > noise.shape[0]:
-      noise = noise.repeat(torch.div(src.shape[0], noise.shape[0], rounding_mode="floor") + 1, 1)
+      noise = noise.repeat(
+          torch.div(src.shape[0], noise.shape[0], rounding_mode="floor") + 1, 1)
 
     # Random pick start and end timestamp of noise pem.
     start = random.randint(0, noise.shape[0] - src.shape[0])
@@ -117,18 +120,24 @@ class SpeedPerturb(object):
         Inplace operation.
     """
 
-  def __init__(self, sample_rate=16000, min_speed=0.9, max_speed=1.1, rate=3) -> None:
+  def __init__(self,
+               sample_rate=16000,
+               min_speed=0.9,
+               max_speed=1.1,
+               rate=3) -> None:
     self._sample_rate = sample_rate
     self._min_speed = min_speed
     self._max_speed = max_speed
     self._rate = rate
 
   def process(self, pcm: torch.Tensor) -> torch.Tensor:
-    speeds = torch.linspace(self._min_speed, self._max_speed, steps=self._rate).tolist()
+    speeds = torch.linspace(self._min_speed, self._max_speed,
+                            steps=self._rate).tolist()
     speed = random.choice(speeds)
     if speed != 1.0:
       perturbed_pcm, _ = torchaudio.sox_effects.apply_effects_tensor(
-          pcm, self._sample_rate, [['speed', str(speed)], ['rate', str(self._sample_rate)]])
+          pcm, self._sample_rate,
+          [['speed', str(speed)], ['rate', str(self._sample_rate)]])
       return perturbed_pcm
     else:
       return pcm
@@ -148,7 +157,12 @@ class SpecAugment(object):
                 spec_auged_feat: torch.Tensor(T, D)
         """
 
-  def __init__(self, num_t_mask=2, num_f_mask=2, max_t=50, max_f=10, max_w=80) -> None:
+  def __init__(self,
+               num_t_mask=2,
+               num_f_mask=2,
+               max_t=50,
+               max_f=10,
+               max_w=80) -> None:
 
     self._num_t_mask = num_t_mask
     self._num_f_mask = num_f_mask

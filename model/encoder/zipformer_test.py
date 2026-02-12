@@ -37,8 +37,8 @@ class TestZipformer(unittest.TestCase):
     self._zipformer = Zipformer2(config=Zipformer2Config(**self._config))
 
   def test_zipformer_infos(self):
-    glog.info("Params of Zipformer: {}".format(sum(
-        p.numel() for p in self._zipformer.parameters())))
+    glog.info("Params of Zipformer: {}".format(
+        sum(p.numel() for p in self._zipformer.parameters())))
 
   @parameterized.expand([(10,), (20,)])
   def test_zipformer_forward(self, batch_size):
@@ -54,10 +54,8 @@ class TestZipformer(unittest.TestCase):
     # zipformer forward
     lengths = torch.randint(1, 400, (batch_size,))
     feats = torch.rand(batch_size, int(lengths.max()), 80)
-    outputs, outputs_length = self._zipformer.streaming_forward(feats,
-                                                                lengths,
-                                                                chunk_size=[32],
-                                                                left_context_frames=[128])
+    outputs, outputs_length = self._zipformer.streaming_forward(
+        feats, lengths, chunk_size=[32], left_context_frames=[128])
     glog.info(outputs.shape)
     glog.info(outputs_length)
 
@@ -83,7 +81,8 @@ class TestZipformer(unittest.TestCase):
 
   def test_non_streaming_onnx_export(self):
     export_filename = "test_logs/zipformer.onnx"
-    self._zipformer.onnx_export(export_filename=export_filename, streaming=False)
+    self._zipformer.onnx_export(export_filename=export_filename,
+                                streaming=False)
 
 
 if __name__ == "__main__":

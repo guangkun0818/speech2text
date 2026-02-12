@@ -93,14 +93,17 @@ class ConvNeXt(nn.Module):
 
     if layerdrop_rate != 0.0:
       batch_size = x.shape[0]
-      mask = (torch.rand((batch_size, 1, 1, 1), dtype=x.dtype, device=x.device) > layerdrop_rate)
+      mask = (torch.rand((batch_size, 1, 1, 1), dtype=x.dtype, device=x.device)
+              > layerdrop_rate)
     else:
       mask = None
     # turns out this caching idea does not work with --world-size > 1
     # return caching_eval(self.forward_internal, x, mask)
     return self.forward_internal(x, mask)
 
-  def forward_internal(self, x: Tensor, layer_skip_mask: Optional[Tensor] = None) -> Tensor:
+  def forward_internal(self,
+                       x: Tensor,
+                       layer_skip_mask: Optional[Tensor] = None) -> Tensor:
     """
         x layout: (N, C, H, W), i.e. (batch_size, num_channels, num_frames, num_freqs)
 
@@ -268,7 +271,8 @@ class Conv2dSubsampling(nn.Module):
     self.out_norm = BiasNorm(out_channels)
     self.dropout = Dropout3(dropout, shared_dim=1)
 
-  def forward(self, x: torch.Tensor, x_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+  def forward(self, x: torch.Tensor,
+              x_lens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Subsample x.
 
         Args:
@@ -337,7 +341,8 @@ class Conv2dSubsampling(nn.Module):
     x = self.conv(x)
 
     # T' = (T-7)//2-3
-    x, cached_left_pad = self.convnext.streaming_forward(x, cached_left_pad=cached_left_pad)
+    x, cached_left_pad = self.convnext.streaming_forward(
+        x, cached_left_pad=cached_left_pad)
 
     # Now x is of shape (N, odim, T', ((idim-1)//2 - 1)//2)
     b, c, t, f = x.size()
@@ -377,6 +382,7 @@ class Conv2dSubsampling(nn.Module):
     left_pad = self.convnext.padding[0]
     freq = self.out_width
     channels = self.layer3_channels
-    cached_embed_left_pad = torch.zeros(batch_size, channels, left_pad, freq).to(device)
+    cached_embed_left_pad = torch.zeros(batch_size, channels, left_pad,
+                                        freq).to(device)
 
     return cached_embed_left_pad

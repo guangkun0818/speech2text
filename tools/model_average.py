@@ -20,7 +20,8 @@ def _topk_chkpt_pool(latest_chkpt, num_aver, descending=False):
   chkpt_pool = []
   for k in latest_chkpt["callbacks"]:
     for pt in latest_chkpt["callbacks"][k]["best_k_models"]:
-      chkpt_pool.append(tuple([pt, latest_chkpt["callbacks"][k]["best_k_models"][pt]]))
+      chkpt_pool.append(
+          tuple([pt, latest_chkpt["callbacks"][k]["best_k_models"][pt]]))
 
   # NOTE: If checkpointing by monitoring wer, descending is False, which means
   # best chkpt corresponded with lower wer. If checkpointing by monitoring acc, like
@@ -34,7 +35,8 @@ def _topk_chkpt_pool(latest_chkpt, num_aver, descending=False):
 
 def model_average(chkpt_dir, aver_best_k=None, descending=False) -> None:
   # Average all saved chkpts ensuring stable performance.
-  glog.info("Checkpoint average specified, with aver_best_k of {}.".format(aver_best_k))
+  glog.info("Checkpoint average specified, with aver_best_k of {}.".format(
+      aver_best_k))
   assert os.path.exists(chkpt_dir)
   if os.path.exists(os.path.join(chkpt_dir, "averaged.chkpt")):
     glog.info("Averaged checkpoint found. use saved one.")
@@ -56,7 +58,8 @@ def model_average(chkpt_dir, aver_best_k=None, descending=False) -> None:
   count += 1  # Num of tracked chkpts.
 
   for k in aver_model["state_dict"]:
-    aver_model["state_dict"][k] = torch.true_divide(aver_model["state_dict"][k], count)
+    aver_model["state_dict"][k] = torch.true_divide(aver_model["state_dict"][k],
+                                                    count)
   out_path = os.path.join(chkpt_dir, "averaged.chkpt")
   glog.info("Saving averaged model into {}...".format(out_path))
   torch.save(aver_model, out_path)

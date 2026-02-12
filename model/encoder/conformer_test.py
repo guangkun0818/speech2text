@@ -40,7 +40,9 @@ class TestConformer(unittest.TestCase):
   def test_subsampling_4(self):
     # Unittest of subsampling4 module
     glog.info("Unittest of Subsampling4. ...")
-    self._subsampling_module = Subsampling(idim=80, odim=512, subsampling_rate=4)
+    self._subsampling_module = Subsampling(idim=80,
+                                           odim=512,
+                                           subsampling_rate=4)
 
     lengths = torch.randint(4, 400, (10,))
     feats = torch.rand(10, int(lengths.max()), 80)
@@ -55,7 +57,9 @@ class TestConformer(unittest.TestCase):
   def test_subsampling_6(self):
     # Unittest of subsampling6 module
     glog.info("Unittest of Subsampling4. ...")
-    self._subsampling_module = Subsampling(idim=80, odim=512, subsampling_rate=6)
+    self._subsampling_module = Subsampling(idim=80,
+                                           odim=512,
+                                           subsampling_rate=6)
 
     lengths = torch.randint(4, 400, (10,))
     feats = torch.rand(10, int(lengths.max()), 80)
@@ -70,7 +74,9 @@ class TestConformer(unittest.TestCase):
   def test_subsampling_8(self):
     # Unittest of subsampling8 module
     glog.info("Unittest of Subsampling8. ...")
-    self._subsampling_module = Subsampling(idim=80, odim=512, subsampling_rate=8)
+    self._subsampling_module = Subsampling(idim=80,
+                                           odim=512,
+                                           subsampling_rate=8)
 
     lengths = torch.randint(4, 400, (10,))
     feats = torch.rand(10, int(lengths.max()), 80)

@@ -20,7 +20,8 @@ class Wav2Vec2EncoderTest(unittest.TestCase):
         "hidden_size": 768,
         "label_dim": 45
     }
-    self._wav2vec2 = Wav2Vec2Encoder(config=Wav2Vec2CustomizedConfig(**self._config))
+    self._wav2vec2 = Wav2Vec2Encoder(config=Wav2Vec2CustomizedConfig(
+        **self._config))
 
   def test_compute_logits_length(self):
     # Unittest of compute_logits_length
@@ -30,7 +31,9 @@ class Wav2Vec2EncoderTest(unittest.TestCase):
     output_lengths = self._wav2vec2._compute_logits_length(lengths=lengths)
     glog.info("Output lengths: {}".format(output_lengths))
 
-    self.assertTrue(torch.allclose(output_lengths, torch.LongTensor([49, 99, 50, 100, 49, 100])))
+    self.assertTrue(
+        torch.allclose(output_lengths,
+                       torch.LongTensor([49, 99, 50, 100, 49, 100])))
 
   def test_zero_mean_unit_var_norm(self):
     # Unittest of data normalization

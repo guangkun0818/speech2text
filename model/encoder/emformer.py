@@ -51,9 +51,10 @@ class Emformer(nn.Module):
 
     # Cache-free when streaming-mode apply to Subsampling layer, trade-off
     # precision with memory and computation.
-    self._subsampling_module = Subsampling(idim=config.feats_dim,
-                                           odim=config.emformer_input_dim,
-                                           subsampling_rate=config.subsampling_rate)
+    self._subsampling_module = Subsampling(
+        idim=config.feats_dim,
+        odim=config.emformer_input_dim,
+        subsampling_rate=config.subsampling_rate)
 
     # Streaming supported Emformer
     self._emformer_module = torchaudio.models.Emformer(
@@ -71,17 +72,18 @@ class Emformer(nn.Module):
         tanh_on_mem=config.tanh_on_mem,
     )
     # Cache-free streaming, no-worry about it.
-    self._output_linear = torch.nn.Linear(config.emformer_input_dim, config.output_dim)
+    self._output_linear = torch.nn.Linear(config.emformer_input_dim,
+                                          config.output_dim)
     self._layer_norm = torch.nn.LayerNorm(config.output_dim)
 
   def forward(self, feats: torch.Tensor,
               lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     # Training graph
     # feats: (B, T, D); length: (B)
-    output, out_lengths = self._subsampling_module(feats,
-                                                   lengths)  # output: (B, T / subsamp_rate, D)
-    output, out_lengths = self._emformer_module(output,
-                                                out_lengths)  # output: (B, T / subsamp_rate, D)
+    output, out_lengths = self._subsampling_module(
+        feats, lengths)  # output: (B, T / subsamp_rate, D)
+    output, out_lengths = self._emformer_module(
+        output, out_lengths)  # output: (B, T / subsamp_rate, D)
     output = self._output_linear(output)
     output = self._layer_norm(output)
 
@@ -94,20 +96,24 @@ class Emformer(nn.Module):
 
   @torch.jit.export
   @torch.inference_mode(mode=True)
-  def streaming_step(self, feats: torch.Tensor, states: List[List[torch.Tensor]]):
+  def streaming_step(self, feats: torch.Tensor,
+                     states: List[List[torch.Tensor]]):
     # When streaming mode applied, Emformer shall sequentially forward with
     # stream_step when feats flood in.
     output = self._subsampling_module.inference(feats)
     assert feats.shape[1] == self._infer_chunk_size and output.shape[
         1] == self._segment_length, "Please review your config of streaming infer."
 
-    dummy_lengths = torch.tensor([output.shape[1]]).to(output.device).to(torch.int32)
+    dummy_lengths = torch.tensor([output.shape[1]
+                                 ]).to(output.device).to(torch.int32)
     if len(states) == 0:
       # Indicating this is the init status
-      output, _, states = self._emformer_module.infer(output, dummy_lengths, None)
+      output, _, states = self._emformer_module.infer(output, dummy_lengths,
+                                                      None)
     else:
       # Intermediate step
-      output, _, states = self._emformer_module.infer(output, dummy_lengths, states)
+      output, _, states = self._emformer_module.infer(output, dummy_lengths,
+                                                      states)
 
     output = self._output_linear(output)
     output = self._layer_norm(output)
@@ -121,7 +127,10 @@ class Emformer(nn.Module):
     output, _ = self.forward(x, dummy_lengths)
     return output
 
-  def streaming_forward(self, x: torch.Tensor, length: torch.Tensor, chunk_size=20):
+  def streaming_forward(self,
+                        x: torch.Tensor,
+                        length: torch.Tensor,
+                        chunk_size=20):
     """ Streaming forward impl for inference. """
     self._infer_chunk_size = chunk_size
     outputs = []
@@ -136,7 +145,9 @@ class Emformer(nn.Module):
 
       for i in range(0, actual_l, self._infer_chunk_size):
         # Feat chunk = [:, chunk_size, :]
-        feats_chunk = feats[:, i * self._infer_chunk_size:self._infer_chunk_size * (i + 1), :]
+        feats_chunk = feats[:,
+                            i * self._infer_chunk_size:self._infer_chunk_size *
+                            (i + 1), :]
         if feats_chunk.shape[1] != self._infer_chunk_size:
           # If residual chunk less than infer chunk size, padding 0 ta rear.
           residual = self._infer_chunk_size - feats_chunk.shape[1]
@@ -145,8 +156,8 @@ class Emformer(nn.Module):
         chunk_out, states = self.streaming_step(feats_chunk, states)
         output_chunks.append(chunk_out)
 
-      output_chunks = torch.concat(output_chunks,
-                                   dim=1).squeeze(0)  # [(1, out_chunk_size, D)] -> (T, D)
+      output_chunks = torch.concat(output_chunks, dim=1).squeeze(
+          0)  # [(1, out_chunk_size, D)] -> (T, D)
       outputs.append(output_chunks)
       outputs_length.append(output_chunks.shape[0])
 

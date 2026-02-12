@@ -55,7 +55,8 @@ class BaseRnntTask(pl.LightningModule):
     # Modules fo rnnt task building.
     self._tokenizer = TokenizerSetup(self._tokenizer_config)
     self._frontend = self._get_frontend(copy.deepcopy(config["dataset"]))
-    self._global_cmvn = GlobalCmvnLayer(config=self._dataset_config)  # Register CMVN buffer
+    self._global_cmvn = GlobalCmvnLayer(
+        config=self._dataset_config)  # Register CMVN buffer
     self._encoder = Encoder(self._encoder_config)
     self._decoder = Decoder(self._decoder_config)
     self._predictor = Predictor(self._predictor_config)
@@ -89,9 +90,10 @@ class BaseRnntTask(pl.LightningModule):
                                  shuffle=True,
                                  drop_last=False)
     if self._dataset_config["use_bucket_sampler"]:
-      batch_sampler = DynamicBucketBatchSampler(sampler=sampler,
-                                                dataset=dataset,
-                                                **self._dataset_config["bucket_sampler_config"])
+      batch_sampler = DynamicBucketBatchSampler(
+          sampler=sampler,
+          dataset=dataset,
+          **self._dataset_config["bucket_sampler_config"])
       dataloader = DataLoader(dataset=dataset,
                               collate_fn=asr_collate_fn,
                               batch_sampler=batch_sampler,
@@ -170,7 +172,8 @@ class BaseRnntTask(pl.LightningModule):
       params = self.parameters()
 
     optimizer = Optimizer(params, **self._optim_config["optimizer"]["config"])
-    lr_scheduler = LR_Scheduler(optimizer=optimizer, **self._optim_config["lr_scheduler"]["config"])
+    lr_scheduler = LR_Scheduler(optimizer=optimizer,
+                                **self._optim_config["lr_scheduler"]["config"])
     return {
         "optimizer": optimizer,
         "lr_scheduler": {
@@ -201,14 +204,18 @@ class RnntTask(BaseRnntTask):
     # Encoder foward
     encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+    decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                    encoder_out_length)
     # Predictor forward
     predictor_state = self._predictor.init_state()
-    predictor_out, predictor_length, _ = self._predictor(batch["label"], batch["label_length"],
-                                                         predictor_state)
+    predictor_out, predictor_length, _ = self._predictor(
+        batch["label"], batch["label_length"], predictor_state)
     # Joiner forward
-    joiner_out, boundary, ranges, _ = self._joiner(decoder_out, decoder_out_length, predictor_out,
-                                                   predictor_length, batch["label"])
+    joiner_out, boundary, ranges, _ = self._joiner(decoder_out,
+                                                   decoder_out_length,
+                                                   predictor_out,
+                                                   predictor_length,
+                                                   batch["label"])
 
     # Organize batch as Loss API
     loss_input_batch = {
@@ -221,8 +228,9 @@ class RnntTask(BaseRnntTask):
     loss = self._loss(loss_input_batch)
 
     if batch_idx % 100 == 0:
-      glog.info("Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}".format(
-          self.current_epoch, batch_idx, self.global_step, loss))
+      glog.info(
+          "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}".
+          format(self.current_epoch, batch_idx, self.global_step, loss))
 
     self.log("train_loss", loss, sync_dist=True, prog_bar=True, logger=True)
     return loss.mean()
@@ -235,14 +243,18 @@ class RnntTask(BaseRnntTask):
     # Encoder foward
     encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+    decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                    encoder_out_length)
     # Predictor forward
     predictor_state = self._predictor.init_state()
-    predictor_out, predictor_length, _ = self._predictor(batch["label"], batch["label_length"],
-                                                         predictor_state)
+    predictor_out, predictor_length, _ = self._predictor(
+        batch["label"], batch["label_length"], predictor_state)
     # Joiner forward
-    joiner_out, boundary, ranges, _ = self._joiner(decoder_out, decoder_out_length, predictor_out,
-                                                   predictor_length, batch["label"])
+    joiner_out, boundary, ranges, _ = self._joiner(decoder_out,
+                                                   decoder_out_length,
+                                                   predictor_out,
+                                                   predictor_length,
+                                                   batch["label"])
 
     # Organize batch as Loss API
     loss_input_batch = {
@@ -257,8 +269,9 @@ class RnntTask(BaseRnntTask):
     wer = self._metric(decoder_out, decoder_out_length, batch["label"])
 
     if batch_idx % 50 == 0:
-      glog.info("Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}".format(
-          self.current_epoch, batch_idx, self.global_step, loss))
+      glog.info(
+          "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {}".
+          format(self.current_epoch, batch_idx, self.global_step, loss))
 
     eval_info = {"val_loss": loss, "wer": wer}
     self.log_dict(eval_info, sync_dist=True, prog_bar=True)
@@ -294,15 +307,19 @@ class CtcHybridRnnt(BaseRnntTask):
     # Encoder foward
     encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+    decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                    encoder_out_length)
     # Predictor forward
     predictor_state = self._predictor.init_state()
-    predictor_out, predictor_length, _ = self._predictor(batch["label"], batch["label_length"],
-                                                         predictor_state)
+    predictor_out, predictor_length, _ = self._predictor(
+        batch["label"], batch["label_length"], predictor_state)
 
     # Joiner forward
-    joiner_out, boundary, ranges, _ = self._joiner(encoder_out, encoder_out_length, predictor_out,
-                                                   predictor_length, batch["label"])
+    joiner_out, boundary, ranges, _ = self._joiner(encoder_out,
+                                                   encoder_out_length,
+                                                   predictor_out,
+                                                   predictor_length,
+                                                   batch["label"])
 
     # Organize batch as Loss API
     rnnt_loss_input_batch = {
@@ -326,7 +343,8 @@ class CtcHybridRnnt(BaseRnntTask):
     if batch_idx % 100 == 0:
       glog.info(
           "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} loss_rnnt {} loss_ctc {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, loss_rnnt, loss_ctc))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  loss_rnnt, loss_ctc))
     train_info = {
         "train_loss": loss,
         "train_loss/loss_rnnt": loss_rnnt,
@@ -343,15 +361,19 @@ class CtcHybridRnnt(BaseRnntTask):
     # Encoder foward
     encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+    decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                    encoder_out_length)
     # Predictor forward
     predictor_state = self._predictor.init_state()
-    predictor_out, predictor_length, _ = self._predictor(batch["label"], batch["label_length"],
-                                                         predictor_state)
+    predictor_out, predictor_length, _ = self._predictor(
+        batch["label"], batch["label_length"], predictor_state)
 
     # Joiner forward
-    joiner_out, boundary, ranges, _ = self._joiner(encoder_out, encoder_out_length, predictor_out,
-                                                   predictor_length, batch["label"])
+    joiner_out, boundary, ranges, _ = self._joiner(encoder_out,
+                                                   encoder_out_length,
+                                                   predictor_out,
+                                                   predictor_length,
+                                                   batch["label"])
 
     # Organize batch as Loss API
     rnnt_loss_input_batch = {
@@ -378,7 +400,8 @@ class CtcHybridRnnt(BaseRnntTask):
     if batch_idx % 50 == 0:
       glog.info(
           "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} loss_rnnt {} loss_ctc {} wer: {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, loss_rnnt, loss_ctc, wer))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  loss_rnnt, loss_ctc, wer))
     eval_info = {
         "val_loss": loss,
         "val_loss/loss_rnnt": loss_rnnt,
@@ -402,7 +425,12 @@ class PrunedRnntTask(BaseRnntTask):
     self._enable_ctc = self._loss_config["enable_ctc"]
 
     if self._enable_ctc:
-      self._ctc_config = {"model": "CTC", "config": {**self._loss_config["ctc_config"]}}
+      self._ctc_config = {
+          "model": "CTC",
+          "config": {
+              **self._loss_config["ctc_config"]
+          }
+      }
       self._ctc_loss = Loss(self._ctc_config)
       self._ctc_projector_config = config["ctc_projector"]
       self._ctc_projector = Decoder(self._ctc_projector_config)
@@ -420,16 +448,17 @@ class PrunedRnntTask(BaseRnntTask):
     # Encoder foward
     encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+    decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                    encoder_out_length)
     # Predictor forward
     predictor_state = self._predictor.init_state()
-    predictor_out, predictor_length, _ = self._predictor(batch["label"], batch["label_length"],
-                                                         predictor_state)
+    predictor_out, predictor_length, _ = self._predictor(
+        batch["label"], batch["label_length"], predictor_state)
 
     # Joiner forward
-    joiner_out, boundary, ranges, simple_loss = self._joiner(decoder_out, decoder_out_length,
-                                                             predictor_out, predictor_length,
-                                                             batch["label"])
+    joiner_out, boundary, ranges, simple_loss = self._joiner(
+        decoder_out, decoder_out_length, predictor_out, predictor_length,
+        batch["label"])
 
     # Organize batch as Loss API
     loss_input_batch = {
@@ -444,7 +473,8 @@ class PrunedRnntTask(BaseRnntTask):
     pruned_loss = self._loss(loss_input_batch)
 
     if self._enable_ctc:
-      logits, logits_length = self._ctc_projector(decoder_out, decoder_out_length)
+      logits, logits_length = self._ctc_projector(decoder_out,
+                                                  decoder_out_length)
       ctc_loss_input_batch = {
           "logits": logits,
           "logits_length": logits_length,
@@ -461,8 +491,8 @@ class PrunedRnntTask(BaseRnntTask):
     if batch_idx % 100 == 0:
       glog.info(
           "Train (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {} ctc_loss {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, simple_loss, pruned_loss,
-                  ctc_loss))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  simple_loss, pruned_loss, ctc_loss))
     train_info = {
         "train_loss": loss,
         "train_loss/simple_loss": simple_loss,
@@ -481,16 +511,17 @@ class PrunedRnntTask(BaseRnntTask):
     # Encoder foward
     encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
     # Decoder forward
-    decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+    decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                    encoder_out_length)
     # Predictor forward
     predictor_state = self._predictor.init_state()
-    predictor_out, predictor_length, _ = self._predictor(batch["label"], batch["label_length"],
-                                                         predictor_state)
+    predictor_out, predictor_length, _ = self._predictor(
+        batch["label"], batch["label_length"], predictor_state)
 
     # Joiner forward
-    joiner_out, boundary, ranges, simple_loss = self._joiner(decoder_out, decoder_out_length,
-                                                             predictor_out, predictor_length,
-                                                             batch["label"])
+    joiner_out, boundary, ranges, simple_loss = self._joiner(
+        decoder_out, decoder_out_length, predictor_out, predictor_length,
+        batch["label"])
 
     # Organize batch as Loss API
     loss_input_batch = {
@@ -505,7 +536,8 @@ class PrunedRnntTask(BaseRnntTask):
     pruned_loss = self._loss(loss_input_batch)
 
     if self._enable_ctc:
-      logits, logits_length = self._ctc_projector(decoder_out, decoder_out_length)
+      logits, logits_length = self._ctc_projector(decoder_out,
+                                                  decoder_out_length)
       ctc_loss_input_batch = {
           "logits": logits,
           "logits_length": logits_length,
@@ -525,8 +557,8 @@ class PrunedRnntTask(BaseRnntTask):
     if batch_idx % 50 == 0:
       glog.info(
           "Eval (Epoch: {} / Local_steps: {} / Global_steps: {}) loss: {} simple_loss {} pruned_loss: {} ctc_loss: {} wer: {}"
-          .format(self.current_epoch, batch_idx, self.global_step, loss, simple_loss, pruned_loss,
-                  ctc_loss, wer))
+          .format(self.current_epoch, batch_idx, self.global_step, loss,
+                  simple_loss, pruned_loss, ctc_loss, wer))
     eval_info = {
         "val_loss": loss,
         "val_loss/simple_loss": simple_loss,
@@ -574,15 +606,19 @@ class PrunedRnntTask(BaseRnntTask):
       }]
       if self._enable_ctc:
         params.append({
-            "params": self._ctc_projector.parameters(),
-            "name": "ctc_projector_lr",
-            "lr": self._optim_config["seperate_lr"]["config"]["ctc_projector_lr"]
+            "params":
+                self._ctc_projector.parameters(),
+            "name":
+                "ctc_projector_lr",
+            "lr":
+                self._optim_config["seperate_lr"]["config"]["ctc_projector_lr"]
         })
     else:
       params = self.parameters()
 
     optimizer = Optimizer(params, **self._optim_config["optimizer"]["config"])
-    lr_scheduler = LR_Scheduler(optimizer=optimizer, **self._optim_config["lr_scheduler"]["config"])
+    lr_scheduler = LR_Scheduler(optimizer=optimizer,
+                                **self._optim_config["lr_scheduler"]["config"])
     return {
         "optimizer": optimizer,
         "lr_scheduler": {
@@ -601,25 +637,29 @@ class RnntInference(AbcAsrInference, BaseRnntTask):
     super(AbcAsrInference, self).__init__(config=train_config)
 
     self._decoding_type = self._decoding_config["type"]
-    self._use_rnnt = self._decoding_type.startswith("rnnt")  # Specify whether use rnnt decoding.
+    self._use_rnnt = self._decoding_type.startswith(
+        "rnnt")  # Specify whether use rnnt decoding.
 
     if self._use_rnnt:
       # Specify using rnnt decoding.
-      self._decoding_sess = DecodingFactory[self._decoding_config["type"]].value(
-          tokenizer=self._tokenizer,
-          predictor=self._predictor,
-          joiner=self._joiner,
-          **self._decoding_config["config"])
+      self._decoding_sess = DecodingFactory[
+          self._decoding_config["type"]].value(
+              tokenizer=self._tokenizer,
+              predictor=self._predictor,
+              joiner=self._joiner,
+              **self._decoding_config["config"])
     else:
-      self._decoding_sess = DecodingFactory[self._decoding_config["type"]].value(
-          tokenizer=self._tokenizer, **self._decoding_config["config"])
+      self._decoding_sess = DecodingFactory[
+          self._decoding_config["type"]].value(
+              tokenizer=self._tokenizer, **self._decoding_config["config"])
 
     # NOTE: Specify whether using streaming forward of encoder, since streaming
     # impl of Rnnt-based asr system usually subjects to encoder setting.
     self._streaming_config = infer_config["streaming"]
     self._is_encoder_streaming = self._streaming_config["is_encoder_streaming"]
     if self._is_encoder_streaming:
-      self._enc_streaming_setting = self._streaming_config["encoder_streaming_setting"]
+      self._enc_streaming_setting = self._streaming_config[
+          "encoder_streaming_setting"]
 
   def test_step(self, batch, batch_idx):
     feat = self._global_cmvn(batch["feat"])
@@ -628,7 +668,8 @@ class RnntInference(AbcAsrInference, BaseRnntTask):
       encoder_out, encoder_out_length = self._encoder.streaming_forward(
           feat, batch["feat_length"], **self._enc_streaming_setting)
     else:
-      encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
+      encoder_out, encoder_out_length = self._encoder(feat,
+                                                      batch["feat_length"])
 
     if self._use_rnnt:
       # Use enc_out if rnnt specified.
@@ -637,13 +678,15 @@ class RnntInference(AbcAsrInference, BaseRnntTask):
                                    decode_session=self._decoding_sess)
     else:
       # Use dec_out as ctc logits.
-      decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+      decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                      encoder_out_length)
       log_probs = F.log_softmax(decoder_out, dim=-1)
       decoded_texts = batch_search(log_probs,
                                    decoder_out_length,
                                    decode_session=self._decoding_sess)
 
-    self._export_decoded_results(batch["audio_filepath"], decoded_texts, batch["text"])
+    self._export_decoded_results(batch["audio_filepath"], decoded_texts,
+                                 batch["text"])
     self._predicton += decoded_texts
     self._reference += batch["text"]
 
@@ -657,26 +700,30 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
     super(AbcAsrInference, self).__init__(config=train_config)
 
     self._decoding_type = self._decoding_config["type"]
-    self._use_rnnt = self._decoding_type.startswith("rnnt")  # Specify whether use rnnt decoding.
+    self._use_rnnt = self._decoding_type.startswith(
+        "rnnt")  # Specify whether use rnnt decoding.
 
     if self._use_rnnt:
       # Specify using rnnt decoding.
-      self._decoding_sess = DecodingFactory[self._decoding_config["type"]].value(
-          tokenizer=self._tokenizer,
-          predictor=self._predictor,
-          joiner=self._joiner,
-          **self._decoding_config["config"])
+      self._decoding_sess = DecodingFactory[
+          self._decoding_config["type"]].value(
+              tokenizer=self._tokenizer,
+              predictor=self._predictor,
+              joiner=self._joiner,
+              **self._decoding_config["config"])
     else:
       assert self._enable_ctc, "CTC decoding no available if enable_ctc is false in loss setting."
-      self._decoding_sess = DecodingFactory[self._decoding_config["type"]].value(
-          tokenizer=self._tokenizer, **self._decoding_config["config"])
+      self._decoding_sess = DecodingFactory[
+          self._decoding_config["type"]].value(
+              tokenizer=self._tokenizer, **self._decoding_config["config"])
 
     # NOTE: Specify whether using streaming forward of encoder, since streaming
     # as Rnnt-based asr system usually subject to encoder setting.
     self._streaming_config = infer_config["streaming"]
     self._is_encoder_streaming = self._streaming_config["is_encoder_streaming"]
     if self._is_encoder_streaming:
-      self._enc_streaming_setting = self._streaming_config["encoder_streaming_setting"]
+      self._enc_streaming_setting = self._streaming_config[
+          "encoder_streaming_setting"]
 
     if "onnx_export" in infer_config["task"]:
       assert "onnx_export_config" in infer_config, "Provide onnx_export_config if onnx_export is True."
@@ -685,7 +732,8 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
 
   def on_test_start(self) -> None:
     if self._export_onnx:
-      glog.info("Onnx export specified, export model to {}".format(self._export_path))
+      glog.info("Onnx export specified, export model to {}".format(
+          self._export_path))
       # NOTE: Specify onnx export, currently only works on streaming zipformer
       # stateless. More system to be exportable in the future maybe.
       assert self._encoder_config["model"] == "Zipformer"
@@ -696,31 +744,39 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
 
       self.cpu()
       # Encoder onnx export
-      self._encoder.onnx_export(self._export_path,
-                                **self._export_onnx_config["onnx_encoder_config"])
+      self._encoder.onnx_export(
+          self._export_path, **self._export_onnx_config["onnx_encoder_config"])
       # Predictor onnx export
-      self._predictor.onnx_export(self._export_path,
-                                  **self._export_onnx_config["onnx_predictor_config"])
+      self._predictor.onnx_export(
+          self._export_path,
+          **self._export_onnx_config["onnx_predictor_config"])
       # Joienr onnx export
-      self._joiner.onnx_export(self._export_path, **self._export_onnx_config["onnx_joiner_config"])
+      self._joiner.onnx_export(self._export_path,
+                               **self._export_onnx_config["onnx_joiner_config"])
 
       if self._export_onnx_config["export_int8"]:
         # NOTE: Export quantized int8 model for sherp-onnx deploy. If for mnn-speech2text,
         # leave it to https://github.com/guangkun0818/mnn-speech2text/blob/main/mnn-convert.sh
-        quantize_dynamic(model_input=os.path.join(self._export_path, "encoder.onnx"),
-                         model_output=os.path.join(self._export_path, "encoder_int8.onnx"),
+        quantize_dynamic(model_input=os.path.join(self._export_path,
+                                                  "encoder.onnx"),
+                         model_output=os.path.join(self._export_path,
+                                                   "encoder_int8.onnx"),
                          op_types_to_quantize=["MatMul"],
                          weight_type=QuantType.QInt8)
 
-        quantize_dynamic(model_input=os.path.join(self._export_path, "predictor.onnx"),
-                         model_output=os.path.join(self._export_path, "predictor_int8.onnx"),
+        quantize_dynamic(model_input=os.path.join(self._export_path,
+                                                  "predictor.onnx"),
+                         model_output=os.path.join(self._export_path,
+                                                   "predictor_int8.onnx"),
                          op_types_to_quantize=["MatMul", "Gather"],
                          weight_type=QuantType.QInt8)
 
         # Joiner onnx export and quant
 
-        quantize_dynamic(model_input=os.path.join(self._export_path, "joiner.onnx"),
-                         model_output=os.path.join(self._export_path, "joiner_int8.onnx"),
+        quantize_dynamic(model_input=os.path.join(self._export_path,
+                                                  "joiner.onnx"),
+                         model_output=os.path.join(self._export_path,
+                                                   "joiner_int8.onnx"),
                          op_types_to_quantize=["MatMul"],
                          weight_type=QuantType.QInt8)
       self.cuda()  # Move back to device.
@@ -735,9 +791,11 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
       encoder_out, encoder_out_length = self._encoder.streaming_forward(
           feat, batch["feat_length"], **self._enc_streaming_setting)
     else:
-      encoder_out, encoder_out_length = self._encoder(feat, batch["feat_length"])
+      encoder_out, encoder_out_length = self._encoder(feat,
+                                                      batch["feat_length"])
 
-    decoder_out, decoder_out_length = self._decoder(encoder_out, encoder_out_length)
+    decoder_out, decoder_out_length = self._decoder(encoder_out,
+                                                    encoder_out_length)
 
     if self._use_rnnt:
       # Use enc_out if rnnt specified.
@@ -746,10 +804,14 @@ class PrunedRnntInference(AbcAsrInference, PrunedRnntTask):
                                    decode_session=self._decoding_sess)
     else:
       # Use dec_out as ctc logits.
-      logits, logits_length = self._ctc_projector(decoder_out, decoder_out_length)
+      logits, logits_length = self._ctc_projector(decoder_out,
+                                                  decoder_out_length)
       log_probs = F.log_softmax(logits, dim=-1)
-      decoded_texts = batch_search(log_probs, logits_length, decode_session=self._decoding_sess)
+      decoded_texts = batch_search(log_probs,
+                                   logits_length,
+                                   decode_session=self._decoding_sess)
 
-    self._export_decoded_results(batch["audio_filepath"], decoded_texts, batch["text"])
+    self._export_decoded_results(batch["audio_filepath"], decoded_texts,
+                                 batch["text"])
     self._predicton += decoded_texts
     self._reference += batch["text"]

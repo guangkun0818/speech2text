@@ -21,8 +21,10 @@ from typing import Dict, Tuple, Optional, Union
 class BestRQLayerConfig:
   """ Config of Best-RQ layer """
   pre_post_norm: bool = False  # Using pre_norm and post_norm for CMVN, deprecated in the future
-  cnn_kernel_size: Tuple = (3, 3)  # Kernel size setting of subsampling module within encoder
-  cnn_stride: Tuple = (2, 2)  # Stride setting of subsampling module with encoder
+  cnn_kernel_size: Tuple = (
+      3, 3)  # Kernel size setting of subsampling module within encoder
+  cnn_stride: Tuple = (2, 2
+                      )  # Stride setting of subsampling module with encoder
   feat_dim: int = 80  # Acoustic feats dim
   num_codebooks: int = 1  # Specify multi-codebook stablizing training
   codebook_dim: int = 512  # Codebook embedding size
@@ -57,7 +59,8 @@ class MaskingStrategyConfig:
   mean_span_length: int = 1  # Mean length of each masking span
   span_select_type: str = "static"  # The way to generate mask spans
   span_length_float_rate: Union[
-      int, float, None] = None  # Floating rate of each span length (works only for uniform, normal)
+      int, float,
+      None] = None  # Floating rate of each span length (works only for uniform, normal)
   min_num_spans: int = 0  # minimum number of masked spans
   no_overlap: bool = False  # if true, will switch to an alternative recursive algorithm that prevents spans from over lappin
   min_space: int = 0  # only used if no_overlap is True, this is how many elements to keep unmasked between spans
@@ -79,13 +82,15 @@ class BestRQLayer(nn.Module):
     self._num_codebooks = layer_config.num_codebooks
     self._codebook_dim = layer_config.codebook_dim
     self._codebook_size = layer_config.codebook_size
-    assert (layer_config.label_basis == "euclidean" or layer_config.label_basis
-            == "cosine"), "label_basis shall be chosen from 'euclidean' or 'cosine' exclusively."
+    assert (
+        layer_config.label_basis == "euclidean" or
+        layer_config.label_basis == "cosine"
+    ), "label_basis shall be chosen from 'euclidean' or 'cosine' exclusively."
 
     self._label_basis = layer_config.label_basis
     self._codebooks = nn.ParameterList([
-        nn.Parameter(data=torch.empty(self._codebook_size, self._codebook_dim), requires_grad=False)
-        for i in range(self._num_codebooks)
+        nn.Parameter(data=torch.empty(self._codebook_size, self._codebook_dim),
+                     requires_grad=False) for i in range(self._num_codebooks)
     ])
 
     for i in range(self._num_codebooks):
@@ -94,7 +99,8 @@ class BestRQLayer(nn.Module):
     # matrix for Projection.
     self._feat_dim = layer_config.feat_dim
     self._input_dim = self._feat_dim * math.prod(self._cnn_kernel_size)
-    self._projector = nn.Parameter(data=torch.rand(self._input_dim, self._codebook_dim),
+    self._projector = nn.Parameter(data=torch.rand(self._input_dim,
+                                                   self._codebook_dim),
                                    requires_grad=False)
     nn.init.xavier_normal_(self._projector)
 
@@ -102,7 +108,8 @@ class BestRQLayer(nn.Module):
     self._pre_post_norm = layer_config.pre_post_norm
     if self._pre_post_norm:
       self._pre_norm = nn.BatchNorm1d(num_features=self._feat_dim, affine=False)
-      self._post_norm = nn.BatchNorm1d(num_features=self._input_dim, affine=False)
+      self._post_norm = nn.BatchNorm1d(num_features=self._input_dim,
+                                       affine=False)
 
     # Masking Strategy config
     self._mask_proportion = masking_config.mask_proportion
@@ -134,20 +141,28 @@ class BestRQLayer(nn.Module):
                     where 'True' indicates the exact position of label to be predicted.
         """
     if self._pre_post_norm:
-      norm_feats = self._pre_norm(raw_feats.transpose(1, 2)).transpose(1, 2)  # Do BN on raw feature
+      norm_feats = self._pre_norm(raw_feats.transpose(1, 2)).transpose(
+          1, 2)  # Do BN on raw feature
       norm_auged_feats = self._pre_norm(auged_feats.transpose(1, 2)).transpose(
           1, 2)  # Do BN on raw feature
     else:
       norm_feats = raw_feats
       norm_auged_feats = auged_feats
 
-    sub_frame_arr, label_lengths, labels = self._get_subsampling_arrangment(norm_feats, length)
+    sub_frame_arr, label_lengths, labels = self._get_subsampling_arrangment(
+        norm_feats, length)
 
-    masked_feats, masked_dim = self._random_mask(norm_auged_feats, sub_frame_arr, label_lengths)
+    masked_feats, masked_dim = self._random_mask(norm_auged_feats,
+                                                 sub_frame_arr, label_lengths)
 
-    return {"masked_feats": masked_feats, "labels": labels, "masked_dim": masked_dim}
+    return {
+        "masked_feats": masked_feats,
+        "labels": labels,
+        "masked_dim": masked_dim
+    }
 
-  def _get_subsampling_arrangment(self, feats: torch.Tensor, length: torch.Tensor) -> torch.Tensor:
+  def _get_subsampling_arrangment(self, feats: torch.Tensor,
+                                  length: torch.Tensor) -> torch.Tensor:
     """ Internal method to generate Best-RQ ssl labels, frames arrangement on 
             original frame indexs and valid feats lengths after subsampling module 
             within encoder where latter two are mainly used for feats masking strategy.
@@ -182,16 +197,19 @@ class BestRQLayer(nn.Module):
     for k, s in zip(self._cnn_kernel_size, self._cnn_stride):
       sub_frame_arr = sub_frame_arr.unfold(1, k, s)
       sub_frame_arr = sub_frame_arr.contiguous().view(sub_frame_arr.shape[0],
-                                                      sub_frame_arr.shape[1], -1)
+                                                      sub_frame_arr.shape[1],
+                                                      -1)
       # According to formula on page below.
       # https://pytorch.org/docs/stable/generated/torch.nn.Conv1d.html
-      label_lengths = torch.div((label_lengths - k), s, rounding_mode="floor") + 1
+      label_lengths = torch.div(
+          (label_lengths - k), s, rounding_mode="floor") + 1
 
       # Stacking original feats following subsampling module arrangement in
       # order to generate ssl labels.
       stacked_feats = stacked_feats.unfold(1, k, s)
       stacked_feats = stacked_feats.contiguous().view(stacked_feats.shape[0],
-                                                      stacked_feats.shape[1], -1)
+                                                      stacked_feats.shape[1],
+                                                      -1)
 
     labels = self._make_label(stacked_feats)
     return sub_frame_arr.unique(dim=-1), label_lengths, labels
@@ -214,7 +232,8 @@ class BestRQLayer(nn.Module):
     batch_size = label_lengths.shape[0]
     sub_timestep = sub_frame_arr.shape[1]
     masked_dim = torch.zeros(batch_size, sub_frame_arr.shape[1]).to(
-        feats.device)  # Masked frame_id after subsampling, masked position=1 (else=0)
+        feats.device
+    )  # Masked frame_id after subsampling, masked position=1 (else=0)
     for batch in range(batch_size):
       tot_sub_timestep = label_lengths[batch].item()
       padding_num = sub_timestep - tot_sub_timestep
@@ -222,14 +241,13 @@ class BestRQLayer(nn.Module):
       if mask_idx.numel() != 0:
         masked_dim[batch, mask_idx] = 1
         masked_frame_idx = sub_frame_arr[:, mask_idx].reshape(1, -1).unique(
-            dim=-1)  # Obtain original frame idx from sub_frame_arr with masked_idx
+            dim=-1
+        )  # Obtain original frame idx from sub_frame_arr with masked_idx
         # Mask original feats with random noise according to paper.
-        feats[batch,
-              masked_frame_idx, :] = torch.normal(mean=0,
-                                                  std=0.1,
-                                                  size=(1, len(masked_frame_idx),
-                                                        self._feat_dim)).to(dtype=feats.dtype,
-                                                                            device=feats.device)
+        feats[batch, masked_frame_idx, :] = torch.normal(
+            mean=0, std=0.1, size=(1, len(masked_frame_idx),
+                                   self._feat_dim)).to(dtype=feats.dtype,
+                                                       device=feats.device)
     return feats, masked_dim
 
   def _make_label(self, stacked_feats: torch.Tensor):
@@ -252,20 +270,24 @@ class BestRQLayer(nn.Module):
     # Compute labels from multi-codebooks
     for i in range(self._num_codebooks):
       if self._label_basis == "euclidean":
-        vector_distances = torch.linalg.vector_norm(F.normalize(targets, dim=-1).unsqueeze(-2) -
-                                                    F.normalize(self._codebooks[i], dim=-1),
-                                                    dim=-1)
+        vector_distances = torch.linalg.vector_norm(
+            F.normalize(targets, dim=-1).unsqueeze(-2) -
+            F.normalize(self._codebooks[i], dim=-1),
+            dim=-1)
         label = torch.argmin(vector_distances, dim=-1) + 1  # Label start from 1
       elif self._label_basis == "cosine":
-        cosine = F.linear(F.normalize(targets, dim=-1), F.normalize(self._codebooks[i], dim=-1))
+        cosine = F.linear(F.normalize(targets, dim=-1),
+                          F.normalize(self._codebooks[i], dim=-1))
         label = torch.argmax(cosine, dim=-1) + 1  # Label start from 1
       labels.append(label)
 
     # Concat labels into one.
-    labels = torch.concat([labels[i].unsqueeze(0) for i in range(len(labels))], dim=0)
+    labels = torch.concat([labels[i].unsqueeze(0) for i in range(len(labels))],
+                          dim=0)
     return labels
 
-  def _compute_mask_indices(self, timestep: int, padding_num: Optional[int]) -> torch.Tensor:
+  def _compute_mask_indices(self, timestep: int,
+                            padding_num: Optional[int]) -> torch.Tensor:
     """ Computes random mask spans for a given shape
             Args:
                 timestep: the timestep for which to compute masks
@@ -278,7 +300,8 @@ class BestRQLayer(nn.Module):
 
     all_num_mask = int(
         # add a random number for probabilistic rounding
-        self._mask_proportion * all_sz / float(self._mean_span_length) + np.random.rand())
+        self._mask_proportion * all_sz / float(self._mean_span_length) +
+        np.random.rand())
 
     all_num_mask = max(self._min_num_spans, all_num_mask)
 
@@ -288,7 +311,8 @@ class BestRQLayer(nn.Module):
       sz = all_sz - padding_num
       num_mask = int(
           # add a random number for probabilistic rounding
-          self._mask_proportion * sz / float(self._mean_span_length) + rng.random())
+          self._mask_proportion * sz / float(self._mean_span_length) +
+          rng.random())
       num_mask = max(self._min_num_spans, num_mask)
     else:
       sz = all_sz
@@ -298,11 +322,14 @@ class BestRQLayer(nn.Module):
     if self._span_select_type == "static":
       lengths = np.full(num_mask, self._mean_span_length).tolist()
     elif self._span_select_type == "uniform":
-      lengths = rng.integers(self._mean_span_length - self._span_length_float_rate,
-                             self._mean_span_length + self._span_length_float_rate,
-                             size=num_mask).tolist()
+      lengths = rng.integers(
+          self._mean_span_length - self._span_length_float_rate,
+          self._mean_span_length + self._span_length_float_rate,
+          size=num_mask).tolist()
     elif self._span_select_type == "normal":
-      lengths = rng.normal(self._mean_span_length, self._span_length_float_rate, size=num_mask)
+      lengths = rng.normal(self._mean_span_length,
+                           self._span_length_float_rate,
+                           size=num_mask)
       lengths = [max(1, int(round(x))) for x in lengths]
     elif self._span_select_type == "poisson":
       lengths = rng.poisson(self._mean_span_length, size=num_mask)
@@ -341,7 +368,8 @@ class BestRQLayer(nn.Module):
         # the element in this array equal to len if satisfy: len >= length + self._min_space,
         # else equal to 0
         lens = np.fromiter(
-            (e - s if e - s >= length + self._min_space else 0 for s, e in parts),
+            (e - s if e - s >= length + self._min_space else 0
+             for s, e in parts),
             np.int64,
         )
         l_sum = np.sum(lens)
@@ -361,7 +389,10 @@ class BestRQLayer(nn.Module):
         min_len = sz - num_mask - 1
 
       mask_idc = rng.choice(sz - min_len, num_mask, replace=False)
-      mask_idc = np.asarray(
-          [mask_idc[j] + offset for j in range(len(mask_idc)) for offset in range(lengths[j])])
+      mask_idc = np.asarray([
+          mask_idc[j] + offset
+          for j in range(len(mask_idc))
+          for offset in range(lengths[j])
+      ])
     mask_idc = np.unique(mask_idc[mask_idc < sz])
     return torch.LongTensor(mask_idc).contiguous().view(-1)
